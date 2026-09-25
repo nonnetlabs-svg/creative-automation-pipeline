@@ -6,10 +6,16 @@ def load_inputs(brief_path: Path, brand_path: Path) -> tuple[Brief, BrandRules]
 def check_copy(brief: Brief, brand: BrandRules) -> list[str]          # bad words found
 def get_hero(product: Product, brief: Brief, assets_dir: Path,
              provider: ImageProvider) -> tuple[Image, Source]         # "reused" | "generated"
-def fit_to_ratio(hero: Image, ratio: str) -> Image                    # smart crop + resize
+def fit_to_ratio(hero: Image, ratio: str) -> Image                    # center crop + resize
 def render_creative(img: Image, message: str, brand: BrandRules) -> Image
-def check_brand(img: Image, brand: BrandRules) -> BrandChecks
-def save_run(results: list[CreativeResult], out_dir: Path) -> Manifest
+def check_brand(img: Image, brand: BrandRules) -> BrandChecks         # report only, never raises;
+                                     # prohibited_words always [] (check_copy stops the run first)
+def save_run(creatives: list[tuple[CreativeResult, Image]], campaign_id: str,
+             provider: str, out_dir: Path) -> Manifest                # out_dir = outputs/<campaign_id>
+
+# Helpers
+def pick_message(brief: Brief) -> tuple[str, str]                     # brief.locale if present, else "en"
+def creative_path(product_id: str, ratio: str) -> str                 # "<id>/<ratio 9x16>/creative.png"
 
 class ImageProvider(Protocol):          # plug-in slot: mock, ElevenLabs, later Firefly
     def generate(self, prompt: str) -> Image: ...
