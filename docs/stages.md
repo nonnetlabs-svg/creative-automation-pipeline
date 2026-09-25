@@ -30,9 +30,11 @@ per ratio: crop → add words + logo → check brand → save + manifest
 def run_pipeline(brief_path: Path, brand_path: Path, assets_dir: Path, out_dir: Path,
                  provider: ImageProvider) -> Manifest     # writes to out_dir/<campaign_id>
 class BlockedCopyError(ValueError)                        # .words; raised when check_copy hits
+class ProviderError(RuntimeError)                         # provider failed; message never has the key
 ```
 CLI: `python -m pipeline run <brief> [--brand examples/brand.json]
-[--assets assets/products] [--out outputs] [--provider mock]`.
-Prints a summary table; exit 1 on blocked copy.
+[--assets assets/products] [--out outputs] [--provider mock|elevenlabs]`.
+`elevenlabs` reads `ELEVENLABS_API_KEY` from `.env` (loaded by the CLI only).
+Prints a summary table; exit 1 on blocked copy or provider error.
 
 A blocked run writes no images and no manifest. Step 7 run logging will record it.

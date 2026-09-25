@@ -3,8 +3,9 @@ from enum import Enum
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 
-from pipeline.providers import MockProvider
+from pipeline.providers import ElevenLabsProvider, MockProvider, ProviderError
 from pipeline.runner import BlockedCopyError, run_pipeline
 
 app = typer.Typer(no_args_is_help=True)
@@ -12,9 +13,10 @@ app = typer.Typer(no_args_is_help=True)
 
 class ProviderName(str, Enum):
     mock = "mock"
+    elevenlabs = "elevenlabs"
 
 
-PROVIDERS = {ProviderName.mock: MockProvider}
+PROVIDERS = {ProviderName.mock: MockProvider, ProviderName.elevenlabs: ElevenLabsProvider}
 
 
 @app.callback()
@@ -31,9 +33,10 @@ def run(
     provider: ProviderName = typer.Option(ProviderName.mock, help="Image provider."),
 ) -> None:
     """Generate creatives for every product x aspect ratio in BRIEF."""
+    load_dotenv()  # here, not at import: real env vars still win, tests import cli cleanly
     try:
         manifest = run_pipeline(brief, brand, assets, out, PROVIDERS[provider]())
-    except BlockedCopyError as err:
+    except (BlockedCopyError, ProviderError) as err:
         typer.echo(str(err), err=True)
         raise typer.Exit(1)
 
