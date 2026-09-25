@@ -36,6 +36,12 @@ def test_rejects_unknown_ratio(brief):
         Brief.model_validate(brief)
 
 
+def test_rejects_duplicate_ratio(brief):
+    brief["aspect_ratios"].append("1:1")
+    with pytest.raises(ValidationError, match="duplicates"):
+        Brief.model_validate(brief)
+
+
 def test_rejects_message_without_en(brief):
     del brief["message"]["en"]
     with pytest.raises(ValidationError):

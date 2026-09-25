@@ -34,6 +34,14 @@ class Brief(BaseModel):
             raise ValueError('message must include "en"')
         return v
 
+    @field_validator("aspect_ratios")
+    @classmethod
+    def no_duplicate_ratios(cls, v: list[Ratio]) -> list[Ratio]:
+        dupes = sorted({r for r in v if v.count(r) > 1})
+        if dupes:
+            raise ValueError(f"aspect_ratios has duplicates: {dupes}")
+        return v
+
 
 class BrandRules(BaseModel):
     model_config = ConfigDict(extra="forbid")
