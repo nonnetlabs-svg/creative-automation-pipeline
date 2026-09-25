@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 Ratio = Literal["1:1", "9:16", "16:9"]
+Source = Literal["reused", "generated"]
 Hex = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
 
@@ -61,7 +62,7 @@ class CreativeResult(BaseModel):
     product_id: str
     ratio: Ratio
     path: str
-    source: Literal["reused", "generated"]
+    source: Source
     locale: str
     checks: BrandChecks
 

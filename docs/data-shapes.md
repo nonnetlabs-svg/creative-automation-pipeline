@@ -21,6 +21,7 @@ Principle: real-world shapes, fake infrastructure.
 ```
 
 ## Brand rules — examples/brand.json (owned by the brand team)
+`logo` is resolved relative to brand.json's folder.
 ```json
 {
   "colors": ["#1E7F4F", "#FFFFFF"],

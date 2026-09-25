@@ -4,7 +4,7 @@ One job per stage. Signatures only; bodies come in Step 5.
 ```python
 def load_inputs(brief_path: Path, brand_path: Path) -> tuple[Brief, BrandRules]
 def check_copy(brief: Brief, brand: BrandRules) -> list[str]          # bad words found
-def get_hero(product: Product, assets_dir: Path,
+def get_hero(product: Product, brief: Brief, assets_dir: Path,
              provider: ImageProvider) -> tuple[Image, Source]         # "reused" | "generated"
 def fit_to_ratio(hero: Image, ratio: str) -> Image                    # smart crop + resize
 def render_creative(img: Image, message: str, brand: BrandRules) -> Image
