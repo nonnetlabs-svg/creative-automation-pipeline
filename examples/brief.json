@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "fizz-summer-2026",
+  "market": "MX",
+  "locale": "es-MX",
+  "audience": "Gen Z, urban, 18-24",
+  "message": { "en": "Taste the summer", "es-MX": "Prueba el verano" },
+  "aspect_ratios": ["1:1", "9:16", "16:9"],
+  "products": [
+    { "id": "citrus-soda", "name": "Citrus Soda",
+      "description": "sparkling lime soda in a green aluminum can" },
+    { "id": "berry-soda", "name": "Berry Soda",
+      "description": "mixed berry soda in a purple aluminum can" }
+  ]
+}
