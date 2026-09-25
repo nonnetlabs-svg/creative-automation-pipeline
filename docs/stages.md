@@ -24,3 +24,15 @@ class ImageProvider(Protocol):          # plug-in slot: mock, ElevenLabs, later 
 ## Flow
 load → check words (stop if bad, $0 spent) → per product: get hero →
 per ratio: crop → add words + logo → check brand → save + manifest
+
+## Entry points
+```python
+def run_pipeline(brief_path: Path, brand_path: Path, assets_dir: Path, out_dir: Path,
+                 provider: ImageProvider) -> Manifest     # writes to out_dir/<campaign_id>
+class BlockedCopyError(ValueError)                        # .words; raised when check_copy hits
+```
+CLI: `python -m pipeline run <brief> [--brand examples/brand.json]
+[--assets assets/products] [--out outputs] [--provider mock]`.
+Prints a summary table; exit 1 on blocked copy.
+
+A blocked run writes no images and no manifest. Step 7 run logging will record it.

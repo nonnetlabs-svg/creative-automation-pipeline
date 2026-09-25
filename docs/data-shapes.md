@@ -25,7 +25,7 @@ Principle: real-world shapes, fake infrastructure.
 ```json
 {
   "colors": ["#1E7F4F", "#FFFFFF"],
-  "logo": "assets/brand/logo.png",
+  "logo": "../assets/brand/logo.png",
   "prohibited_words": ["guaranteed", "cure", "free"]
 }
 ```
