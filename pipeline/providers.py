@@ -57,7 +57,7 @@ class ElevenLabsProvider:
         self.poll_interval, self.timeout, self._sleep = poll_interval, timeout, sleep
 
     def generate(self, prompt: str) -> Image.Image:
-        # 1:1 explicitly: this model defaults to 16:9, and fit_to_ratio crops from a square hero.
+        # 1:1 explicitly: this model defaults to 16:9, and fit_to_ratio fits every ratio from a square hero.
         body = {"model_id": self.model, "prompt": prompt, "aspect_ratio": "1:1"}
         gen_id = self._call("POST", API, json=body)["id"]
         waited = 0.0

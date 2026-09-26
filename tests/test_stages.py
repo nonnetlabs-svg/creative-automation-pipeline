@@ -89,7 +89,7 @@ def test_get_hero_generates_when_missing(inputs, tmp_path):
     _, source = get_hero(product, brief, tmp_path, provider)
     assert source == "generated"
     [prompt] = provider.prompts
-    for part in (product.description, brief.audience, brief.market, "centered", "no text"):
+    for part in (product.description, brief.audience, brief.market, "centered", "no words"):
         assert part in prompt
 
 
@@ -108,6 +108,23 @@ def test_pick_message_falls_back_to_english(inputs):
 @pytest.mark.parametrize("hero_size", [(1024, 1024), (1600, 900), (500, 1400)])
 def test_fit_to_ratio_exact_size(ratio, hero_size):
     assert fit_to_ratio(Image.new("RGB", hero_size), ratio).size == SIZES[ratio]
+
+
+@pytest.mark.parametrize("hero_size", [(1024, 1024), (500, 1400)])
+def test_fit_to_ratio_16x9_shows_whole_hero(hero_size):
+    w, h = hero_size
+    band = round(min(w, h) * 0.05)
+    hero = Image.new("RGB", hero_size, "red")
+    ImageDraw.Draw(hero).rectangle((band, band, w - band - 1, h - band - 1), fill="black")
+    out = fit_to_ratio(hero, "16:9")
+    scale = min(1920 / w, 1080 / h)
+    fw, fh = round(w * scale), round(h * scale)
+    x0, y0, inset = (1920 - fw) // 2, (1080 - fh) // 2, max(2, round(band * scale) // 2)
+    edges = [(x0 + fw // 2, y0 + inset), (x0 + fw // 2, y0 + fh - 1 - inset),
+             (x0 + inset, y0 + fh // 2), (x0 + fw - 1 - inset, y0 + fh // 2)]
+    for xy in edges:  # every frame edge survives: nothing was cropped
+        r, g, b = out.getpixel(xy)
+        assert r > 200 and g < 50 and b < 50, xy
 
 
 def test_fit_text_long_message_fits_two_lines():

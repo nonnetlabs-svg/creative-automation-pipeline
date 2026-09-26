@@ -3,7 +3,7 @@ import logging
 import re
 from pathlib import Path
 
-from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageColor, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from pipeline.models import (
     BrandChecks, BrandRules, Brief, CreativeResult, Manifest, Product, Ratio, Source,
@@ -12,6 +12,9 @@ from pipeline.providers import FONT_PATH, ImageProvider
 
 HERO_EXTENSIONS = (".png", ".jpg")
 SIZES = {"1:1": (1080, 1080), "9:16": (1080, 1920), "16:9": (1920, 1080)}
+# crop = center cover-crop; contain = whole hero over a blurred cover-crop of itself
+FIT_MODES: dict[Ratio, str] = {"1:1": "crop", "9:16": "crop", "16:9": "contain"}
+BLUR_RADIUS = 40
 MARGIN = 0.05  # of image width
 LOGO_SHARE = 0.15  # logo width / image width
 MAX_LINES = 2
@@ -46,7 +49,8 @@ def _hero_prompt(product: Product, brief: Brief) -> str:
     return (
         f"Product photo of {product.description}, "
         f"for {brief.audience} in {brief.market}. Product centered with generous "
-        "space around it. Clean background, no text."
+        "space around it. Clean background. Blank, unbranded can label. The image "
+        "itself contains no words, letters, or numbers; all copy is added later."
     )
 
 
@@ -67,7 +71,14 @@ def pick_message(brief: Brief) -> tuple[str, str]:
 
 
 def fit_to_ratio(hero: Image.Image, ratio: Ratio) -> Image.Image:
-    return ImageOps.fit(hero, SIZES[ratio], Image.LANCZOS, centering=(0.5, 0.5))
+    size = SIZES[ratio]
+    cover = ImageOps.fit(hero, size, Image.LANCZOS, centering=(0.5, 0.5))
+    if FIT_MODES[ratio] == "crop":
+        return cover
+    bg = cover.filter(ImageFilter.GaussianBlur(BLUR_RADIUS))
+    fg = ImageOps.contain(hero, size, Image.LANCZOS)
+    bg.paste(fg, ((size[0] - fg.width) // 2, (size[1] - fg.height) // 2))
+    return bg
 
 
 def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
