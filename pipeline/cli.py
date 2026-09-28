@@ -32,7 +32,7 @@ def run(
     out: Path = typer.Option(Path("outputs"), help="Output root; run goes in <out>/<campaign_id>."),
     provider: ProviderName = typer.Option(ProviderName.mock, help="Image provider."),
 ) -> None:
-    """Generate creatives for every product x aspect ratio in BRIEF."""
+    """Generate creatives for every product x locale x aspect ratio in BRIEF."""
     load_dotenv()  # here, not at import: real env vars still win, tests import cli cleanly
     try:
         manifest = run_pipeline(brief, brand, assets, out, PROVIDERS[provider]())
@@ -40,8 +40,11 @@ def run(
         typer.echo(str(err), err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"{'product':<16}{'ratio':<7}{'source':<11}{'logo':<6}color")
+    typer.echo(f"{'product':<16}{'locale':<7}{'ratio':<7}{'source':<11}{'logo':<6}color")
     for c in manifest.creatives:
         logo = "yes" if c.checks.logo_present else "NO"
-        typer.echo(f"{c.product_id:<16}{c.ratio:<7}{c.source:<11}{logo:<6}{c.checks.brand_color_share:.2f}")
+        typer.echo(
+            f"{c.product_id:<16}{c.locale:<7}{c.ratio:<7}{c.source:<11}{logo:<6}"
+            f"{c.checks.brand_color_share:.2f}"
+        )
     typer.echo(f"{len(manifest.creatives)} creatives -> {out / manifest.campaign_id}")

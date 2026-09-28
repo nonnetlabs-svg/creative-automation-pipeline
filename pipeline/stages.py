@@ -65,11 +65,6 @@ def get_hero(
     return provider.generate(_hero_prompt(product, brief)), "generated"
 
 
-def pick_message(brief: Brief) -> tuple[str, str]:
-    locale = brief.locale if brief.locale in brief.message else "en"
-    return brief.message[locale], locale
-
-
 def fit_to_ratio(hero: Image.Image, ratio: Ratio) -> Image.Image:
     size = SIZES[ratio]
     cover = ImageOps.fit(hero, size, Image.LANCZOS, centering=(0.5, 0.5))
@@ -163,8 +158,8 @@ def check_brand(img: Image.Image, brand: BrandRules) -> BrandChecks:
     return BrandChecks(logo_present=logo_present, brand_color_share=share, prohibited_words=[])
 
 
-def creative_path(product_id: str, ratio: Ratio) -> str:
-    return f"{product_id}/{ratio.replace(':', 'x')}/creative.png"
+def creative_path(product_id: str, locale: str, ratio: Ratio) -> str:
+    return f"{product_id}/{locale}/{ratio.replace(':', 'x')}/creative.png"
 
 
 def save_run(

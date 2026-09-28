@@ -31,11 +31,21 @@ def test_end_to_end_mock(tmp_path):
     result = invoke(EXAMPLES / "brief.json", tmp_path / "out", tmp_path / "no-assets")
     assert result.exit_code == 0, result.output
     run_dir = tmp_path / "out" / "fizz-summer-2026"
-    assert len(list(run_dir.rglob("creative.png"))) == 6
+    assert len(list(run_dir.rglob("creative.png"))) == 30  # 2 products x 5 locales x 3 ratios
     manifest = Manifest.model_validate_json((run_dir / "manifest.json").read_text())
-    assert len(manifest.creatives) == 6
+    assert len(manifest.creatives) == 30
+    assert len({c.path for c in manifest.creatives}) == 30
+    assert {c.locale for c in manifest.creatives} == {"en", "es-MX", "pt-BR", "fr-FR", "de-DE"}
     assert {c.source for c in manifest.creatives} == {"generated"}
     assert all((run_dir / c.path).is_file() for c in manifest.creatives)
+    assert "pt-BR" in result.output
+
+
+def test_hero_generated_once_per_product_across_locales(tmp_path):
+    provider = StubProvider()
+    manifest = run_pipeline(EXAMPLES / "brief.json", BRAND, tmp_path, tmp_path / "out", provider)
+    assert len(manifest.creatives) == 30
+    assert len(provider.prompts) == 2  # not 10: one hero per product, shared by all locales
 
 
 def test_blocked_copy_exits_1_and_writes_nothing(tmp_path, blocked_brief):

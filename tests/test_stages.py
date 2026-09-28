@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from pipeline.models import CreativeResult, Manifest
 from pipeline.stages import (
     SIZES, _fit_text, check_brand, check_copy, creative_path, fit_to_ratio, get_hero,
-    load_inputs, pick_message, render_creative, save_run,
+    load_inputs, render_creative, save_run,
 )
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
@@ -93,17 +93,6 @@ def test_get_hero_generates_when_missing(inputs, tmp_path):
         assert part in prompt
 
 
-def test_pick_message_uses_brief_locale(inputs):
-    brief, _ = inputs
-    assert pick_message(brief) == ("Prueba el verano", "es-MX")
-
-
-def test_pick_message_falls_back_to_english(inputs):
-    brief, _ = inputs
-    brief.locale = "fr-FR"
-    assert pick_message(brief) == ("Taste the summer", "en")
-
-
 @pytest.mark.parametrize("ratio", ["1:1", "9:16", "16:9"])
 @pytest.mark.parametrize("hero_size", [(1024, 1024), (1600, 900), (500, 1400)])
 def test_fit_to_ratio_exact_size(ratio, hero_size):
@@ -145,6 +134,14 @@ def test_render_creative_keeps_size_and_input(inputs, ratio):
     assert img.tobytes() == before
 
 
+@pytest.mark.parametrize("ratio", ["1:1", "9:16", "16:9"])
+@pytest.mark.parametrize("message", ["Prove o verão", "Goûtez l'été", "Schmeck den Sommer ü"])
+def test_render_creative_accented_text(inputs, ratio, message):
+    _, brand = inputs
+    img = fit_to_ratio(Image.new("RGB", (1024, 1024), "black"), ratio)
+    assert render_creative(img, message, brand).size == SIZES[ratio]
+
+
 def test_check_brand_detects_logo_on_rendered(inputs):
     _, brand = inputs
     img = fit_to_ratio(Image.new("RGB", (1024, 1024), "black"), "9:16")
@@ -169,9 +166,9 @@ def test_save_run_writes_creatives_and_manifest(inputs, tmp_path):
     _, brand = inputs
     checks = check_brand(Image.new("RGB", (8, 8)), brand)
     result = CreativeResult(
-        product_id="citrus-soda", ratio="9:16", path=creative_path("citrus-soda", "9:16"),
+        product_id="citrus-soda", ratio="9:16", path=creative_path("citrus-soda", "es-MX", "9:16"),
         source="generated", locale="es-MX", checks=checks,
     )
     manifest = save_run([(result, Image.new("RGB", (8, 8)))], "fizz", "mock", tmp_path)
-    assert (tmp_path / "citrus-soda" / "9x16" / "creative.png").is_file()
+    assert (tmp_path / "citrus-soda" / "es-MX" / "9x16" / "creative.png").is_file()
     assert Manifest.model_validate_json((tmp_path / "manifest.json").read_text()) == manifest

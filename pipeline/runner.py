@@ -7,7 +7,7 @@ from pipeline.models import CreativeResult, Manifest
 from pipeline.providers import ImageProvider
 from pipeline.stages import (
     check_brand, check_copy, creative_path, fit_to_ratio, get_hero, load_inputs,
-    pick_message, render_creative, save_run,
+    render_creative, save_run,
 )
 
 
@@ -28,15 +28,17 @@ def run_pipeline(
     if hits:
         raise BlockedCopyError(hits)
 
-    message, locale = pick_message(brief)
     creatives: list[tuple[CreativeResult, Image.Image]] = []
     for product in brief.products:
         hero, source = get_hero(product, brief, assets_dir, provider)  # once per product
-        for ratio in brief.aspect_ratios:
-            img = render_creative(fit_to_ratio(hero, ratio), message, brand)
-            result = CreativeResult(
-                product_id=product.id, ratio=ratio, path=creative_path(product.id, ratio),
-                source=source, locale=locale, checks=check_brand(img, brand),
-            )
-            creatives.append((result, img))
+        for locale in brief.locales:
+            message = brief.message[locale]  # Brief guarantees the key; no fallback
+            for ratio in brief.aspect_ratios:
+                img = render_creative(fit_to_ratio(hero, ratio), message, brand)
+                result = CreativeResult(
+                    product_id=product.id, ratio=ratio,
+                    path=creative_path(product.id, locale, ratio),
+                    source=source, locale=locale, checks=check_brand(img, brand),
+                )
+                creatives.append((result, img))
     return save_run(creatives, brief.campaign_id, provider.name, out_dir / brief.campaign_id)
