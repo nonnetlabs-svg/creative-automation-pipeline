@@ -109,8 +109,30 @@ class CreativeResult(BaseModel):
     checks: BrandChecks
 
 
+class ReusedHero(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # a hand-added prompt here is an error, not ignored
+
+    product_id: str
+    source: Literal["reused"] = "reused"
+
+
+class GeneratedHero(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: str
+    source: Literal["generated"] = "generated"
+    model: str | None  # None when the provider ignores it (mock)
+    resolution: str | None
+    prompt: str  # exact text sent, so a hero can be traced back or regenerated
+
+
+# One per product. Reused heroes carry source only; the file in assets/products/ is the record.
+Hero = Annotated[ReusedHero | GeneratedHero, Field(discriminator="source")]
+
+
 class Manifest(BaseModel):
     campaign_id: str
     provider: str
     status: str
+    heroes: list[Hero]
     creatives: list[CreativeResult]

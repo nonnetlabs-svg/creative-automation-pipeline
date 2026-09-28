@@ -5,7 +5,9 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 
-from pipeline.providers import ElevenLabsProvider, MockProvider, ProviderError
+from pipeline.providers import (
+    DEFAULT_MODEL, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
+)
 from pipeline.runner import BlockedCopyError, run_pipeline
 
 app = typer.Typer(no_args_is_help=True)
@@ -16,7 +18,14 @@ class ProviderName(str, Enum):
     elevenlabs = "elevenlabs"
 
 
-PROVIDERS = {ProviderName.mock: MockProvider, ProviderName.elevenlabs: ElevenLabsProvider}
+# Built from the registry so the CLI choices and the provider can't drift apart.
+ModelName = Enum("ModelName", {m: m for m in MODELS}, type=str)
+
+
+def make_provider(provider: ProviderName, model: str):
+    if provider is ProviderName.elevenlabs:
+        return ElevenLabsProvider(model=model)
+    return MockProvider()  # ignores model and resolution
 
 
 @app.callback()
@@ -31,11 +40,12 @@ def run(
     assets: Path = typer.Option(Path("assets/products"), help="Folder of reusable hero images."),
     out: Path = typer.Option(Path("outputs"), help="Output root; run goes in <out>/<campaign_id>."),
     provider: ProviderName = typer.Option(ProviderName.mock, help="Image provider."),
+    model: ModelName = typer.Option(DEFAULT_MODEL, help="ElevenLabs image model (mock ignores it)."),
 ) -> None:
     """Generate creatives for every product x locale x aspect ratio in BRIEF."""
     load_dotenv()  # here, not at import: real env vars still win, tests import cli cleanly
     try:
-        manifest = run_pipeline(brief, brand, assets, out, PROVIDERS[provider]())
+        manifest = run_pipeline(brief, brand, assets, out, make_provider(provider, model.value))
     except (BlockedCopyError, ProviderError) as err:
         typer.echo(str(err), err=True)
         raise typer.Exit(1)

@@ -5,7 +5,7 @@ import pytest
 from PIL import Image, ImageDraw
 from pydantic import ValidationError
 
-from pipeline.models import CreativeResult, Manifest
+from pipeline.models import CreativeResult, GeneratedHero, Manifest
 from pipeline.stages import (
     SIZES, _fit_text, check_brand, check_copy, creative_path, fit_to_ratio, get_hero,
     load_inputs, render_creative, save_run,
@@ -16,6 +16,7 @@ EXAMPLES = Path(__file__).parent.parent / "examples"
 
 class StubProvider:
     name = "stub"
+    model = resolution = None
 
     def __init__(self):
         self.prompts = []
@@ -77,8 +78,9 @@ def test_get_hero_reuses_existing_asset(inputs, tmp_path, ext):
     product = brief.products[0]
     Image.new("RGB", (8, 8), "red").save(tmp_path / f"{product.id}{ext}")
     provider = StubProvider()
-    img, source = get_hero(product, brief, tmp_path, provider)
-    assert source == "reused" and img.mode == "RGB"
+    img, hero = get_hero(product, brief, tmp_path, provider)
+    assert img.mode == "RGB"
+    assert hero.model_dump() == {"product_id": product.id, "source": "reused"}  # source only
     assert provider.prompts == []
 
 
@@ -86,9 +88,11 @@ def test_get_hero_generates_when_missing(inputs, tmp_path):
     brief, _ = inputs
     product = brief.products[0]
     provider = StubProvider()
-    _, source = get_hero(product, brief, tmp_path, provider)
-    assert source == "generated"
+    provider.model, provider.resolution = "gemini-3-pro-image", "2K"  # non-None: proves it's copied
+    _, hero = get_hero(product, brief, tmp_path, provider)
     [prompt] = provider.prompts
+    assert hero == GeneratedHero(product_id=product.id, model="gemini-3-pro-image",
+                                 resolution="2K", prompt=prompt)  # exact prompt that was sent
     for part in (product.description, brief.audience, brief.market, "centered", "no words"):
         assert part in prompt
 
@@ -169,6 +173,6 @@ def test_save_run_writes_creatives_and_manifest(inputs, tmp_path):
         product_id="citrus-soda", ratio="9:16", path=creative_path("citrus-soda", "es-MX", "9:16"),
         source="generated", locale="es-MX", checks=checks,
     )
-    manifest = save_run([(result, Image.new("RGB", (8, 8)))], "fizz", "mock", tmp_path)
+    manifest = save_run([(result, Image.new("RGB", (8, 8)))], [], "fizz", "mock", tmp_path)
     assert (tmp_path / "citrus-soda" / "es-MX" / "9x16" / "creative.png").is_file()
     assert Manifest.model_validate_json((tmp_path / "manifest.json").read_text()) == manifest

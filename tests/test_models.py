@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
-from pipeline.models import BrandRules, Brief
+from pipeline.models import BrandRules, Brief, Hero
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 
@@ -22,6 +22,13 @@ def brand():
 def test_examples_are_valid(brief, brand):
     Brief.model_validate(brief)
     BrandRules.model_validate(brand)
+
+
+def test_reused_hero_rejects_generation_fields():
+    # Reused heroes carry source only; a hand-added prompt must fail, not vanish.
+    with pytest.raises(ValidationError, match="prompt"):
+        TypeAdapter(Hero).validate_python(
+            {"product_id": "citrus-soda", "source": "reused", "prompt": "lime soda"})
 
 
 def test_rejects_single_product(brief):

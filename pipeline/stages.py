@@ -6,7 +6,8 @@ from pathlib import Path
 from PIL import Image, ImageColor, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from pipeline.models import (
-    BrandChecks, BrandRules, Brief, CreativeResult, Manifest, Product, Ratio, Source,
+    BrandChecks, BrandRules, Brief, CreativeResult, GeneratedHero, Hero, Manifest, Product, Ratio,
+    ReusedHero,
 )
 from pipeline.providers import FONT_PATH, ImageProvider
 
@@ -56,13 +57,16 @@ def _hero_prompt(product: Product, brief: Brief) -> str:
 
 def get_hero(
     product: Product, brief: Brief, assets_dir: Path, provider: ImageProvider
-) -> tuple[Image.Image, Source]:
+) -> tuple[Image.Image, Hero]:
     for ext in HERO_EXTENSIONS:
         path = assets_dir / f"{product.id}{ext}"
         if path.is_file():
             with Image.open(path) as img:
-                return img.convert("RGB"), "reused"
-    return provider.generate(_hero_prompt(product, brief)), "generated"
+                return img.convert("RGB"), ReusedHero(product_id=product.id)
+    prompt = _hero_prompt(product, brief)  # built once: the manifest records exactly what was sent
+    hero = GeneratedHero(product_id=product.id, model=provider.model,
+                         resolution=provider.resolution, prompt=prompt)
+    return provider.generate(prompt), hero
 
 
 def fit_to_ratio(hero: Image.Image, ratio: Ratio) -> Image.Image:
@@ -163,14 +167,16 @@ def creative_path(product_id: str, locale: str, ratio: Ratio) -> str:
 
 
 def save_run(
-    creatives: list[tuple[CreativeResult, Image.Image]], campaign_id: str, provider: str, out_dir: Path
+    creatives: list[tuple[CreativeResult, Image.Image]], heroes: list[Hero], campaign_id: str,
+    provider: str, out_dir: Path,
 ) -> Manifest:
     for result, img in creatives:
         path = out_dir / result.path
         path.parent.mkdir(parents=True, exist_ok=True)
         img.save(path)
     manifest = Manifest(
-        campaign_id=campaign_id, provider=provider, status="ok", creatives=[r for r, _ in creatives]
+        campaign_id=campaign_id, provider=provider, status="ok", heroes=heroes,
+        creatives=[r for r, _ in creatives],
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2))

@@ -45,14 +45,25 @@ Schema versions: only **1.1** is accepted. 1.1 replaced `locale: str` with
 ```json
 {
   "campaign_id": "fizz-summer-2026",
-  "provider": "mock",
+  "provider": "elevenlabs",
   "status": "ok",
+  "heroes": [
+    { "product_id": "citrus-soda", "source": "reused" },
+    { "product_id": "berry-soda", "source": "generated",
+      "model": "gemini-3-pro-image", "resolution": "2K",
+      "prompt": "Product photo of mixed berry soda in a purple aluminum can, ..." }
+  ],
   "creatives": [{
-    "product_id": "citrus-soda", "ratio": "9:16",
-    "path": "citrus-soda/es-MX/9x16/creative.png",
+    "product_id": "berry-soda", "ratio": "9:16",
+    "path": "berry-soda/es-MX/9x16/creative.png",
     "source": "generated", "locale": "es-MX",
     "checks": { "logo_present": true, "brand_color_share": 0.14,
                 "prohibited_words": [] }
   }]
 }
 ```
+`heroes` is required, with one entry per product. A reused hero has only `product_id` and `source`
+(the file in `assets/products/` is the record), and extra fields are rejected. A generated hero
+adds `model`, `resolution`, and the exact `prompt` sent, in full. With `provider: "mock"`,
+`model` and `resolution` are `null`: the mock ignores them, so it never claims a real model.
+There is no `seed` field (see docs/stages.md, Models).

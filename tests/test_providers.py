@@ -5,7 +5,9 @@ import httpx
 import pytest
 from PIL import Image
 
-from pipeline.providers import ElevenLabsProvider, MockProvider, ProviderError
+from pipeline.providers import (
+    DEFAULT_MODEL, DEFAULT_RESOLUTION, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
+)
 
 KEY = "sk-fake-test-key"  # never a real key; asserted absent from every error message
 
@@ -68,10 +70,47 @@ def test_elevenlabs_submit_poll_download():
     img = eleven(handler).generate("lime soda")
     assert (img.mode, img.size) == ("RGB", (8, 8))
     assert json.loads(seen[0].content) == {
-        "model_id": "gemini-2.5-flash-image", "prompt": "lime soda", "aspect_ratio": "1:1"}
+        "model_id": "gemini-3-pro-image", "prompt": "lime soda", "aspect_ratio": "1:1",
+        "resolution": "2K"}
     assert [r.url.path for r in seen[1:4]] == ["/v1/flows/image/gen1"] * 3
     assert all(r.headers["xi-api-key"] == KEY for r in seen[:4])
     assert "xi-api-key" not in seen[4].headers  # key never sent to the download host
+
+
+@pytest.mark.parametrize("model", list(MODELS))
+def test_elevenlabs_body_per_model(model):
+    bodies = []
+
+    def handler(req):
+        if req.method == "POST":
+            bodies.append(json.loads(req.content))
+            return httpx.Response(200, json={"id": "gen1", "status": "pending"})
+        if req.url.host == "api.elevenlabs.io":
+            return httpx.Response(200, json={"id": "gen1", "status": "completed",
+                                             "content_url": "https://cdn.test/gen1.png"})
+        return httpx.Response(200, content=png_bytes())
+
+    provider = eleven(handler, model=model)
+    provider.generate("lime soda")
+    # Exact match: no seed, no quality, nothing the model doesn't support.
+    assert bodies == [{"model_id": model, "prompt": "lime soda", "aspect_ratio": "1:1",
+                       "resolution": DEFAULT_RESOLUTION}]
+    assert (provider.model, provider.resolution) == (model, "2K")
+
+
+def test_elevenlabs_unknown_model_fails_before_any_request():
+    calls = []
+    with pytest.raises(ProviderError, match="Unknown model 'gemini-2.5-flash-image'"):
+        eleven(lambda req: calls.append(req), model="gemini-2.5-flash-image")
+    assert calls == []
+
+
+def test_default_is_nano_banana_pro_2k():
+    assert (DEFAULT_MODEL, DEFAULT_RESOLUTION) == ("gemini-3-pro-image", "2K")
+
+
+def test_mock_ignores_model_and_resolution():
+    assert (MockProvider.model, MockProvider.resolution) == (None, None)
 
 
 def test_elevenlabs_missing_key(monkeypatch):

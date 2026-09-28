@@ -16,6 +16,8 @@ FONT = ImageFont.truetype(str(FONT_PATH), 48)
 
 class ImageProvider(Protocol):
     name: str
+    model: str | None  # recorded in the manifest for generated heroes
+    resolution: str | None
 
     def generate(self, prompt: str) -> Image.Image: ...
 
@@ -24,6 +26,7 @@ class MockProvider:
     """Deterministic, offline stand-in: same prompt -> same pixels."""
 
     name = "mock"
+    model = resolution = None  # ignores both: output is always SIZE
 
     def generate(self, prompt: str) -> Image.Image:
         # hashlib, not hash(): hash() is salted per process.
@@ -34,6 +37,11 @@ class MockProvider:
 
 
 API = "https://api.elevenlabs.io/v1/flows/image"
+# Both accept aspect_ratio "1:1" and resolution 1K/2K/4K; neither takes a seed (API docs, 2026-09).
+MODELS = {"gemini-3-pro-image": "Nano Banana Pro", "gpt-image-2.5-sunburst": "GPT Image 2.5 Sunburst"}
+DEFAULT_MODEL = "gemini-3-pro-image"
+# 2K: the 9:16 crop needs 1920 px of height; a 1K hero would be upscaled ~1.9x.
+DEFAULT_RESOLUTION = "2K"
 
 
 class ProviderError(RuntimeError):
@@ -45,20 +53,24 @@ class ElevenLabsProvider:
 
     name = "elevenlabs"
 
-    def __init__(self, api_key: str | None = None, model: str = "gemini-2.5-flash-image",
-                 client: httpx.Client | None = None, poll_interval: float = 2.0,
-                 timeout: float = 120.0, sleep=time.sleep):
+    def __init__(self, api_key: str | None = None, model: str = DEFAULT_MODEL,
+                 resolution: str = DEFAULT_RESOLUTION, client: httpx.Client | None = None,
+                 poll_interval: float = 2.0, timeout: float = 120.0, sleep=time.sleep):
+        if model not in MODELS:  # before any request: a typo costs $0
+            raise ProviderError(f"Unknown model {model!r}; choose from {', '.join(MODELS)}")
         key = api_key or os.environ.get("ELEVENLABS_API_KEY")
         if not key:
             raise ProviderError("ELEVENLABS_API_KEY is not set (add it to .env)")
         self._headers = {"xi-api-key": key}
-        self.model = model
+        self.model, self.resolution = model, resolution
         self._client = client or httpx.Client(timeout=30.0)
         self.poll_interval, self.timeout, self._sleep = poll_interval, timeout, sleep
 
     def generate(self, prompt: str) -> Image.Image:
-        # 1:1 explicitly: this model defaults to 16:9, and fit_to_ratio fits every ratio from a square hero.
-        body = {"model_id": self.model, "prompt": prompt, "aspect_ratio": "1:1"}
+        # 1:1 explicitly: both models default to 16:9, and fit_to_ratio fits every ratio from a square hero.
+        # No quality field: Sunburst keeps its default ("high"); Nano Banana Pro has none.
+        body = {"model_id": self.model, "prompt": prompt, "aspect_ratio": "1:1",
+                "resolution": self.resolution}
         gen_id = self._call("POST", API, json=body)["id"]
         waited = 0.0
         while True:
