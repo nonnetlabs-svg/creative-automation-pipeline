@@ -1,5 +1,8 @@
 {
-  "colors": ["#1E7F4F", "#FFFFFF"],
-  "logo": "../assets/brand/logo.png",
+  "colors": ["#1F5E2E", "#3A1450", "#FFF6E5"],
+  "text_fallback_color": "#FFF6E5",
+  "wordmark": "FIZZ",
+  "font": "../assets/fonts/BricolageGrotesque-ExtraBold.ttf",
+  "hero_prompt_template": "Bold color-blocked studio product photograph of a single unbranded aluminum soda can, centered, front-facing, eye-level, 50mm lens.\n\nSET: seamless two-tone set — flat {WALL_COLOR} wall meeting a flat {FLOOR_COLOR} floor in a clean horizontal line. Solid colors only, no gradient, no vignette, no texture, edges of frame completely empty.\n\nCAN: glossy {CAN_COLOR} can decorated with large playful abstract paper-cutout shapes — {CAN_SHAPES} — in {ACCENT_COLOR} and cream. Graphic shapes only, absolutely no letters, words, numbers, logos or symbols. Heavy fresh condensation beads on the can only.\n\nPROPS: can stands on a short matte cylindrical plinth in {FLOOR_COLOR}. Beside it, {HERO_FRUIT}. Behind the can, a few flat matte paper-cutout {CUTOUT_SHAPES} in {ACCENT_COLOR} and a slightly deeper wall tone, floating close to the can. All props within the center half of the frame.\n\nLIGHT: hard direct sunlight from upper left, crisp defined cast shadows to the lower right, bright and high-key, saturated but clean color.\n\nCOMPOSITION: square 1:1, can occupies about 25% of frame width, top of can at roughly 20% of frame height, plinth base at roughly 70% of frame height. Bottom quarter of the frame is empty flat floor. Generous empty color above and to the sides. All props within the center half of the frame. Minimal, whimsical, premium, editorial — in the spirit of modern craft soda packaging campaigns.\n\nAVOID: text, lettering, typography, labels, logos, watermarks, splashes, liquid explosions, scattered droplets on the set, busy backgrounds, gradients, grey tones, moody lighting, multiple cans.",
   "prohibited_words": ["guaranteed", "cure", "free"]
 }

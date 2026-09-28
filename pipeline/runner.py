@@ -6,8 +6,8 @@ from PIL import Image
 from pipeline.models import CreativeResult, Hero, Manifest
 from pipeline.providers import ImageProvider
 from pipeline.stages import (
-    check_brand, check_copy, creative_path, fit_to_ratio, get_hero, load_inputs,
-    render_creative, save_run,
+    check_brand, check_copy, creative_path, fit_to_ratio, get_hero, load_inputs, map_box,
+    render_creative, save_run, subject_box,
 )
 
 
@@ -28,20 +28,23 @@ def run_pipeline(
     if hits:
         raise BlockedCopyError(hits)
 
+    run_dir = out_dir / brief.campaign_id
     creatives: list[tuple[CreativeResult, Image.Image]] = []
     heroes: list[Hero] = []
     for product in brief.products:
-        hero_img, hero = get_hero(product, brief, assets_dir, provider)  # once per product
+        hero_img, hero = get_hero(product, brand, assets_dir, provider, run_dir)  # once per product
         heroes.append(hero)
+        subject = subject_box(hero_img)  # once per product; reported, never used for layout
         for locale in brief.locales:
             message = brief.message[locale]  # Brief guarantees the key; no fallback
             for ratio in brief.aspect_ratios:
-                img = render_creative(fit_to_ratio(hero_img, ratio), message, brand)
+                img, lockup = render_creative(fit_to_ratio(hero_img, ratio), message, brand,
+                                              product.deep_color, ratio)
+                box = None if subject is None else map_box(subject, hero_img.size, ratio)
                 result = CreativeResult(
                     product_id=product.id, ratio=ratio,
                     path=creative_path(product.id, locale, ratio),
-                    source=hero.source, locale=locale, checks=check_brand(img, brand),
+                    source=hero.source, locale=locale, checks=check_brand(img, brand, lockup, box),
                 )
                 creatives.append((result, img))
-    return save_run(creatives, heroes, brief.campaign_id, provider.name,
-                    out_dir / brief.campaign_id)
+    return save_run(creatives, heroes, brief.campaign_id, provider.name, run_dir)

@@ -3,15 +3,12 @@ import hashlib
 import os
 import time
 from io import BytesIO
-from pathlib import Path
 from typing import Protocol
 
 import httpx
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 SIZE = (1024, 1024)
-FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Inter-Bold.ttf"
-FONT = ImageFont.truetype(str(FONT_PATH), 48)
 
 
 class ImageProvider(Protocol):
@@ -29,10 +26,19 @@ class MockProvider:
     model = resolution = None  # ignores both: output is always SIZE
 
     def generate(self, prompt: str) -> Image.Image:
-        # hashlib, not hash(): hash() is salted per process.
-        r, g, b = hashlib.sha256(prompt.encode("utf-8")).digest()[:3]
-        img = Image.new("RGB", SIZE, (r, g, b))
-        ImageDraw.Draw(img).text((40, 40), prompt[:40], font=FONT, fill="white")
+        # Flat two-tone set, can on a plinth, laid out like the prompt's COMPOSITION line.
+        # No text: the spec's AI image never contains any. hashlib, not hash() (salted per process).
+        d = hashlib.sha256(prompt.encode("utf-8")).digest()
+        wall, floor, can = tuple(d[0:3]), tuple(d[3:6]), tuple(d[6:9])
+        w, h = SIZE
+        img = Image.new("RGB", SIZE, wall)
+        draw = ImageDraw.Draw(img)
+        draw.rectangle((0, h * 0.60, w, h), fill=floor)
+        cx, cw = w / 2, w * 0.25
+        draw.rectangle((cx - cw * 0.6, h * 0.62, cx + cw * 0.6, h * 0.70),
+                       fill=tuple(v // 2 for v in floor))  # plinth, a darker floor tone
+        draw.rounded_rectangle((cx - cw / 2, h * 0.20, cx + cw / 2, h * 0.62),
+                               radius=cw / 6, fill=can)
         return img
 
 
@@ -40,7 +46,8 @@ API = "https://api.elevenlabs.io/v1/flows/image"
 # Both accept aspect_ratio "1:1" and resolution 1K/2K/4K; neither takes a seed (API docs, 2026-09).
 MODELS = {"gemini-3-pro-image": "Nano Banana Pro", "gpt-image-2.5-sunburst": "GPT Image 2.5 Sunburst"}
 DEFAULT_MODEL = "gemini-3-pro-image"
-# 2K: the 9:16 crop needs 1920 px of height; a 1K hero would be upscaled ~1.9x.
+# 2K: no ratio crops any more; each scales the 1:1 hero to 1080 px per side (9:16 by width,
+# 16:9 by height), so 2K downsamples with headroom. A 1K (1024 px) hero would be upscaled ~1.05x.
 DEFAULT_RESOLUTION = "2K"
 
 

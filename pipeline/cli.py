@@ -4,11 +4,12 @@ from pathlib import Path
 
 import typer
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from pipeline.providers import (
     DEFAULT_MODEL, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
 )
-from pipeline.runner import BlockedCopyError, run_pipeline
+from pipeline.runner import run_pipeline
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -20,6 +21,14 @@ class ProviderName(str, Enum):
 
 # Built from the registry so the CLI choices and the provider can't drift apart.
 ModelName = Enum("ModelName", {m: m for m in MODELS}, type=str)
+
+
+def _one_line(err: Exception) -> str:
+    if isinstance(err, ValidationError):  # pydantic's default is multi-line with doc URLs
+        issues = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'input'}: {e['msg']}"
+                           for e in err.errors(include_url=False))
+        return f"Invalid {err.title}: {issues}"
+    return " ".join(str(err).split())
 
 
 def make_provider(provider: ProviderName, model: str):
@@ -46,15 +55,19 @@ def run(
     load_dotenv()  # here, not at import: real env vars still win, tests import cli cleanly
     try:
         manifest = run_pipeline(brief, brand, assets, out, make_provider(provider, model.value))
-    except (BlockedCopyError, ProviderError) as err:
-        typer.echo(str(err), err=True)
+    # ValueError covers BlockedCopyError, pydantic's ValidationError, the fit and square checks.
+    except (ProviderError, ValueError, FileNotFoundError) as err:
+        typer.echo(_one_line(err), err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"{'product':<16}{'locale':<7}{'ratio':<7}{'source':<11}{'logo':<6}color")
+    typer.echo(f"{'product':<16}{'locale':<7}{'ratio':<7}{'source':<11}{'lockup':<14}"
+               f"{'overlap':<9}color")
     for c in manifest.creatives:
-        logo = "yes" if c.checks.logo_present else "NO"
+        ck = c.checks
+        lockup = f"{ck.lockup_color} {ck.lockup_contrast:.1f}"
+        overlap = {True: "YES", False: "no", None: "-"}[ck.overlaps_subject]
         typer.echo(
-            f"{c.product_id:<16}{c.locale:<7}{c.ratio:<7}{c.source:<11}{logo:<6}"
-            f"{c.checks.brand_color_share:.2f}"
+            f"{c.product_id:<16}{c.locale:<7}{c.ratio:<7}{c.source:<11}{lockup:<14}{overlap:<9}"
+            f"{ck.brand_color_share:.2f}"
         )
     typer.echo(f"{len(manifest.creatives)} creatives -> {out / manifest.campaign_id}")

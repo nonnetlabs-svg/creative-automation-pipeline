@@ -21,6 +21,8 @@ class Product(BaseModel):
     id: Slug
     name: str
     description: str
+    deep_color: Hex  # lockup color; must be in the brand palette (checked in load_inputs)
+    prompt_vars: dict[str, str]  # keys must match the brand template's placeholders
 
 
 class Brief(BaseModel):
@@ -48,6 +50,15 @@ class Brief(BaseModel):
     def require_english(cls, v: dict[str, str]) -> dict[str, str]:
         if "en" not in v:
             raise ValueError('message must include "en"')
+        return v
+
+    @field_validator("message")
+    @classmethod
+    def typographic_punctuation(cls, v: dict[str, str]) -> dict[str, str]:
+        # Spec: validated before render, so a straight quote never reaches the lockup.
+        bad = [loc for loc, text in v.items() if "'" in text or '"' in text]
+        if bad:
+            raise ValueError(f"message uses ASCII quotes in {bad}; use ’ “ ” instead")
         return v
 
     @field_validator("aspect_ratios")
@@ -90,12 +101,17 @@ class BrandRules(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     colors: list[Hex] = Field(min_length=1)
-    logo: str
+    text_fallback_color: Hex
+    wordmark: str
+    font: str  # resolved relative to brand.json by load_inputs
+    hero_prompt_template: str
     prohibited_words: list[str]
 
 
 class BrandChecks(BaseModel):
-    logo_present: bool
+    lockup_contrast: float  # WCAG ratio of lockup_color vs. the pixels behind the lockup
+    lockup_color: Hex  # product deep color, or the cream fallback when contrast < 4.5
+    overlaps_subject: bool | None  # report only (B2-lite); None when no subject was detected
     brand_color_share: float = Field(ge=0, le=1)
     prohibited_words: list[str]
 
@@ -124,6 +140,7 @@ class GeneratedHero(BaseModel):
     model: str | None  # None when the provider ignores it (mock)
     resolution: str | None
     prompt: str  # exact text sent, so a hero can be traced back or regenerated
+    path: str  # raw hero, relative to the run folder, for approval into assets/products/
 
 
 # One per product. Reused heroes carry source only; the file in assets/products/ is the record.

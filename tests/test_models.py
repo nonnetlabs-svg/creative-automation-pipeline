@@ -107,6 +107,19 @@ def test_rejects_old_schema_version(brief):
         Brief.model_validate(brief)
 
 
+@pytest.mark.parametrize("bad", ["Goûtez l'été", 'Say "hi"'])
+def test_rejects_ascii_quotes_in_message(brief, bad):
+    brief["message"]["fr-FR"] = bad
+    with pytest.raises(ValidationError, match=r"ASCII quotes in \['fr-FR'\]"):
+        Brief.model_validate(brief)
+
+
+def test_rejects_non_hex_deep_color(brief):
+    brief["products"][0]["deep_color"] = "forest"
+    with pytest.raises(ValidationError):
+        Brief.model_validate(brief)
+
+
 def test_rejects_non_hex_color(brand):
     brand["colors"].append("green")
     with pytest.raises(ValidationError):

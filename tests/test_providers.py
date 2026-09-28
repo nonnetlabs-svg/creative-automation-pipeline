@@ -11,7 +11,7 @@ from pipeline.providers import (
 
 KEY = "sk-fake-test-key"  # never a real key; asserted absent from every error message
 
-CORNER = (1023, 1023)  # far from the text, so it's pure background
+CORNER = (1023, 1023)  # floor, far from the can and plinth
 
 
 def test_same_prompt_identical_pixels():
