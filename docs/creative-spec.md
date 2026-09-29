@@ -128,8 +128,8 @@ LIGHT: hard direct sunlight from upper left, crisp defined cast shadows to
 the lower right, bright and high-key, saturated but clean color.
 
 COMPOSITION: square 1:1, can occupies about 25% of frame width, top of can
-at roughly 20% of frame height, plinth base at roughly 70% of frame height.
-Bottom quarter of the frame is empty flat floor. Generous empty color above
+at roughly 20% of frame height, plinth base at roughly 70% of frame height,
+wall meets floor at roughly 62% of frame height. Bottom quarter of the frame is empty flat floor. Generous empty color above
 and to the sides. All props within the center half of the frame. Minimal,
 whimsical, premium, editorial — in the spirit of modern craft soda
 packaging campaigns.
@@ -216,7 +216,15 @@ HERO MODEL
 - Lockup zone = the new floor band: from a 4% gap below the hero to a 6%
   bottom margin, 8% side margins. At 0.78 all 5 taglines fit on one line;
   the largest scale that still fits them at target size is 0.795.
-- 9:16 and 16:9 zones and placement are unchanged.
+- 9:16 zone and placement are unchanged.
+
+16:9 LOCKUP (supersedes B2 16:9 "vertically centered" zone)
+- The lockup sits fully on the wall: zone top 10%, bottom = horizon minus the
+  4% gap, left 8%, right edge unchanged; vertically centered in that zone.
+  Straddling the horizon ran type into the fruit and dropped contrast on the
+  darker floor.
+- HORIZON_Y = 0.62: the locked berry hero measures 62.55% (rounded down).
+  The template's COMPOSITION line asks every new hero for the same horizon.
 
 TYPE SCALE (supersedes B2 "wordmark ≈ 60% of tagline width" and auto-scale)
                  1:1     9:16    16:9

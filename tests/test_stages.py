@@ -2,13 +2,14 @@ import json
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 from pydantic import ValidationError
 
 from pipeline.models import CreativeResult, GeneratedHero, Manifest
 from pipeline.providers import MockProvider
 from pipeline.stages import (
-    HERO_SCALE_1x1, SIZES, TAGLINE_PX, Lockup, _set_lockup, check_brand, check_copy, creative_path, fit_to_ratio, get_hero,
+    DEBUG_LOCKUP, DEBUG_SUBJECT, HERO_SCALE_1x1, HORIZON_Y, SIZES, TAGLINE_PX, Lockup, _set_lockup,
+    check_brand, check_copy, creative_path, debug_overlay, debug_path, fit_to_ratio, get_hero,
     load_inputs, lockup_zone, map_box, render_creative, save_run, subject_box,
 )
 
@@ -260,6 +261,13 @@ def test_1x1_zone_a_gap_below_hero():
     assert y0 >= hero_y1 + 0.04 * 1080 - 0.5 and y1 == round(0.94 * 1080)  # 6% bottom margin
 
 
+def test_16x9_zone_on_wall_above_horizon():
+    (_, y0, _, y1), _, v = lockup_zone("16:9", (1920, 1080))
+    _, hero_y0, _, hero_y1 = map_box((0, 0, 1024, 1024), (1024, 1024), "16:9")
+    horizon = hero_y0 + HORIZON_Y * (hero_y1 - hero_y0)
+    assert y0 == round(0.10 * 1080) and y1 <= horizon - 0.04 * 1080 + 0.5 and v == "middle"
+
+
 def test_16x9_zone_left_of_hero_center_half():
     (_, _, x1, _), *_ = lockup_zone("16:9", (1920, 1080))
     hero_x0, _, hero_x1, _ = map_box((0, 0, 1024, 1024), (1024, 1024), "16:9")
@@ -364,6 +372,34 @@ def test_save_run_writes_creatives_and_manifest(inputs, tmp_path):
         product_id="citrus-soda", ratio="9:16", path=creative_path("citrus-soda", "es-MX", "9:16"),
         source="generated", locale="es-MX", checks=checks,
     )
-    manifest = save_run([(result, Image.new("RGB", (8, 8)))], [], "fizz", "mock", tmp_path)
+    img = Image.new("RGB", (8, 8))
+    manifest = save_run([(result, img, img)], [], "fizz", "mock", tmp_path)
     assert (tmp_path / "citrus-soda" / "es-MX" / "9x16" / "citrus-soda_9x16_es-MX.png").is_file()
+    assert (tmp_path / "debug" / "citrus-soda" / "es-MX" / "9x16" /
+            "citrus-soda_9x16_es-MX_debug.png").is_file()
     assert Manifest.model_validate_json((tmp_path / "manifest.json").read_text()) == manifest
+    assert manifest.status == "ok"  # overlaps_subject None (no subject) does not fail the gate
+
+
+def test_save_run_overlap_sets_qa_failed(inputs, tmp_path):
+    _, brand = inputs
+    checks = check_brand(Image.new("RGB", (1080, 1080)), brand, LOCKUP, (150, 150, 300, 300))
+    result = CreativeResult(product_id="citrus-soda", ratio="1:1", source="generated", locale="en",
+                            path=creative_path("citrus-soda", "en", "1:1"), checks=checks)
+    img = Image.new("RGB", (8, 8))
+    assert save_run([(result, img, img)], [], "fizz", "mock", tmp_path).status == "qa_failed"
+    assert (tmp_path / result.path).is_file()  # still written for review
+
+
+def test_debug_overlay_draws_both_boxes_on_a_copy():
+    img = Image.new("RGB", (400, 400), "white")
+    out = debug_overlay(img, (10, 10, 100, 100), (200, 200, 300, 300))
+    assert out.getpixel((10, 50)) == ImageColor.getrgb(DEBUG_SUBJECT)
+    assert out.getpixel((200, 250)) == ImageColor.getrgb(DEBUG_LOCKUP)
+    assert img.getpixel((10, 50)) == (255, 255, 255)  # input untouched
+    assert debug_overlay(img, None, (200, 200, 300, 300)).getpixel((10, 50)) == (255, 255, 255)
+
+
+def test_debug_path_mirrors_creative_path():
+    assert debug_path(creative_path("berry-soda", "de-DE", "16:9")) == \
+        "debug/berry-soda/de-DE/16x9/berry-soda_16x9_de-DE_debug.png"

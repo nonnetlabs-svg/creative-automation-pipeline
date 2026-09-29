@@ -17,6 +17,8 @@ from pipeline.providers import ImageProvider
 Box = tuple[int, int, int, int]  # (x0, y0, x1, y1), pixels
 HERO_EXTENSIONS = (".png", ".jpg")
 HERO_DIR = "heroes"  # generated heroes land in <run_dir>/heroes/<product-id>.png
+DEBUG_DIR = "debug"  # review overlays, <run_dir>/debug/<creative path>_debug.png; not deliverables
+DEBUG_SUBJECT, DEBUG_LOCKUP = "#FF00FF", "#00E5FF"  # outline colors no brand palette uses
 SQUARE_TOLERANCE = 0.01  # max |w - h| for a hero, as a share of its short side
 SIZES = {"1:1": (1080, 1080), "9:16": (1080, 1920), "16:9": (1920, 1080)}
 # Prompt COMPOSITION puts the can top at ~20% and plinth base at ~70% of the hero: center 45%.
@@ -26,6 +28,9 @@ HERO_SUBJECT_Y = 0.45
 # 1:1 ignores it (top-anchored, spec B5).
 SUBJECT_Y: dict[Ratio, float] = {"1:1": 0.5, "9:16": 0.46, "16:9": 0.5}
 HERO_SCALE_1x1 = 0.78  # spec B5: 1:1 hero at 78%, top-center; the floor band below holds the lockup
+# Wall/floor horizon, share of hero height: locked berry hero measures 62.55% (rounded down).
+# The template's COMPOSITION line asks new heroes for the same, so the 16:9 lockup stays on the wall.
+HORIZON_Y = 0.62
 CENTER_X: dict[Ratio, float] = {"1:1": 0.5, "9:16": 0.5, "16:9": 0.62}
 PAD_STRIP = 16  # px of hero edge averaged into each pad
 SAMPLE_ROWS = 0.05  # top/bottom share of hero sampled for wall/floor color
@@ -186,8 +191,9 @@ def lockup_zone(ratio: Ratio, size: tuple[int, int]) -> tuple[Box, str, str]:
     gap = GAP_SHARE * min(W, H)
     if ratio == "9:16":  # safe zone (top 14%, left 6%, right 15%), centered on the can's axis,
         box, align = (0.15 * W, 0.14 * H, 0.85 * W, 0.30 * H - gap), ("center", "middle")  # above subject
-    elif ratio == "16:9":  # left margin 8%, stops a gap short of the hero's center half
-        box, align = (0.08 * W, 0.10 * H, 0.62 * W - H / 4 - gap, 0.90 * H), ("left", "middle")
+    elif ratio == "16:9":  # left 8%, a gap short of the hero's center half; on the wall, a gap
+        # above the horizon (hero fills the height, so hero rows = frame rows)
+        box, align = (0.08 * W, 0.10 * H, 0.62 * W - H / 4 - gap, HORIZON_Y * H - gap), ("left", "middle")
     else:  # 1:1: floor band a gap below the scaled hero (square, so its bottom <= this), 6% margin
         box, align = (0.08 * W, HERO_SCALE_1x1 * H + gap, 0.92 * W, 0.94 * H), ("center", "bottom")
     return tuple(round(v) for v in box), *align
@@ -310,22 +316,39 @@ def check_brand(img: Image.Image, brand: BrandRules, lockup: Lockup,
                        overlaps_subject=overlaps, brand_color_share=share, prohibited_words=[])
 
 
+def debug_overlay(img: Image.Image, subject: Box | None, lockup: Box) -> Image.Image:
+    """Copy of the creative with the mapped subject box and the lockup box outlined."""
+    out = img.convert("RGB")
+    draw = ImageDraw.Draw(out)
+    if subject is not None:  # none detected: only the lockup is drawn
+        draw.rectangle(subject, outline=DEBUG_SUBJECT, width=4)
+    draw.rectangle(lockup, outline=DEBUG_LOCKUP, width=4)
+    return out
+
+
+def debug_path(path: str) -> str:
+    return f"{DEBUG_DIR}/{path.removesuffix('.png')}_debug.png"
+
+
 def creative_path(product_id: str, locale: str, ratio: Ratio) -> str:
     r = ratio.replace(":", "x")
     return f"{product_id}/{locale}/{r}/{product_id}_{r}_{locale}.png"
 
 
 def save_run(
-    creatives: list[tuple[CreativeResult, Image.Image]], heroes: list[Hero], campaign_id: str,
-    provider: str, out_dir: Path,
+    creatives: list[tuple[CreativeResult, Image.Image, Image.Image]], heroes: list[Hero],
+    campaign_id: str, provider: str, out_dir: Path,
 ) -> Manifest:
-    for result, img in creatives:
-        path = out_dir / result.path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        img.save(path)
+    for result, img, debug in creatives:
+        for rel, im in ((result.path, img), (debug_path(result.path), debug)):
+            path = out_dir / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            im.save(path)
+    # QA gate (B5): any overlap fails the run, but everything is still written for review.
+    failed = any(r.checks.overlaps_subject for r, _, _ in creatives)
     manifest = Manifest(
-        campaign_id=campaign_id, provider=provider, status="ok", heroes=heroes,
-        creatives=[r for r, _ in creatives],
+        campaign_id=campaign_id, provider=provider, status="qa_failed" if failed else "ok",
+        heroes=heroes, creatives=[r for r, _, _ in creatives],
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2))

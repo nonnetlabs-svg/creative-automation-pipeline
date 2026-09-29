@@ -122,7 +122,7 @@ class BrandRules(BaseModel):
 class BrandChecks(BaseModel):
     lockup_contrast: float  # WCAG ratio of lockup_color vs. the pixels behind the lockup
     lockup_color: Hex  # deep color; cream if deep < 4.5 and cream measures higher
-    overlaps_subject: bool | None  # report only (B2-lite); None when no subject was detected
+    overlaps_subject: bool | None  # True fails the QA gate (B5); None when no subject was detected
     brand_color_share: float = Field(ge=0, le=1)
     prohibited_words: list[str]
 
@@ -161,6 +161,6 @@ Hero = Annotated[ReusedHero | GeneratedHero, Field(discriminator="source")]
 class Manifest(BaseModel):
     campaign_id: str
     provider: str
-    status: str
+    status: Literal["ok", "qa_failed"]  # qa_failed: some creative overlaps its subject (B5 gate)
     heroes: list[Hero]
     creatives: list[CreativeResult]

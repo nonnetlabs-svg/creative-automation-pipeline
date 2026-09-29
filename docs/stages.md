@@ -21,9 +21,11 @@ def fit_to_ratio(hero: Image, ratio: str) -> Image                    # never cr
                                      # 9:16 subject at ~32-60% of height; 16:9 hero center at 62% of width;
                                      # 1:1 hero at HERO_SCALE_1x1 (0.78), top-center, floor band below (B5)
 def subject_box(hero: Image) -> Box | None                            # pixels unlike sampled wall (top rows) and
-                                     # floor (bottom rows); used ONLY to report overlap (B2-lite)
+                                     # floor (bottom rows); feeds the QA gate, never the layout. Color-based:
+                                     # may miss low-contrast parts (a plinth near floor color), see overlays
 def map_box(box: Box, hero_size, ratio: str) -> Box                   # hero coords -> creative coords, same placement
-def lockup_zone(ratio: str, size) -> tuple[Box, str, str]            # fixed zone + (h, v) align (B2; 1:1 B5);
+def lockup_zone(ratio: str, size) -> tuple[Box, str, str]            # fixed zone + (h, v) align (B2; 1:1, 16:9 B5:
+                                     # 16:9 on the wall, above HORIZON_Y minus the gap);
                                      # one function so subject-aware placement can replace it
 def render_creative(img: Image, message: str, brand: BrandRules, deep_color: str,
                     ratio: str) -> tuple[Image, Lockup]               # FIZZ (fixed px per ratio) over tagline
@@ -32,11 +34,15 @@ def render_creative(img: Image, message: str, brand: BrandRules, deep_color: str
 def check_brand(img: Image, brand: BrandRules, lockup: Lockup,
                 subject: Box | None) -> BrandChecks                   # report only, never raises;
                                      # prohibited_words always [] (check_copy stops the run first)
-def save_run(creatives: list[tuple[CreativeResult, Image]], heroes: list[Hero],
-             campaign_id: str, provider: str, out_dir: Path) -> Manifest  # out_dir = outputs/<campaign_id>
+def debug_overlay(img: Image, subject: Box | None, lockup: Box) -> Image  # copy, mapped subject box (magenta)
+                                     # and lockup box (cyan) outlined; the human collision check
+def save_run(creatives: list[tuple[CreativeResult, Image, Image]], heroes: list[Hero],
+             campaign_id: str, provider: str, out_dir: Path) -> Manifest  # out_dir = outputs/<campaign_id>;
+                                     # writes creative + overlay; status "qa_failed" if any overlaps_subject
 
 # Helpers
 def creative_path(product_id: str, locale: str, ratio: str) -> str    # "<id>/<locale>/<9x16>/<id>_<9x16>_<locale>.png"
+def debug_path(path: str) -> str                                      # "debug/<creative path minus .png>_debug.png"
 
 class ImageProvider(Protocol):          # plug-in slot: mock, ElevenLabs, later Firefly
     model: str | None                   # recorded on generated heroes; None if ignored (mock)
@@ -66,7 +72,8 @@ saved in `assets/products/` and reused on every run, not from seeds.
 load (incl. tagline fit check) → check words (stop if bad, $0 spent) →
 per product: get hero (once), subject box (once) →
 per locale: message = brief.message[locale] (validated, no fallback) →
-per ratio: fit → add type lockup → check brand → save + manifest
+per ratio: fit → add type lockup → check brand → debug overlay →
+save creatives + overlays + manifest → QA gate (CLI: any overlap → list them, exit 3)
 
 The tagline fit is checked at load because zones are fixed and the font is known; render
 repeats it only as a safety assert.
@@ -96,6 +103,9 @@ and is ignored by mock; an unknown value is a usage error (exit 2).
 Prints a summary table (product, locale, ratio, source, lockup color + contrast, overlap, color).
 Exit 1 with one clean line on blocked copy, provider error, invalid input (pydantic), a tagline
 that can't fit, a non-square hero, or a missing file.
+Exit 3 (QA gate, B5) when any creative has `overlaps_subject: true`: after the table, it lists each one
+with its overlay path. Everything is already written (creatives, `debug/` overlays, manifest with
+`status: "qa_failed"`) for review. `null` (no subject detected) does not fail the gate.
 
 A run blocked at load (copy or tagline fit) writes nothing. A run that fails after generation
 writes no creatives and no manifest, but keeps the paid heroes in `heroes/`. Step 7 run logging will record it.

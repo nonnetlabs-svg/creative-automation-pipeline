@@ -6,8 +6,8 @@ from PIL import Image
 from pipeline.models import CreativeResult, Hero, Manifest
 from pipeline.providers import ImageProvider
 from pipeline.stages import (
-    check_brand, check_copy, creative_path, fit_to_ratio, get_hero, load_inputs, map_box,
-    render_creative, save_run, subject_box,
+    check_brand, check_copy, creative_path, debug_overlay, fit_to_ratio, get_hero, load_inputs,
+    map_box, render_creative, save_run, subject_box,
 )
 
 
@@ -29,12 +29,12 @@ def run_pipeline(
         raise BlockedCopyError(hits)
 
     run_dir = out_dir / brief.campaign_id
-    creatives: list[tuple[CreativeResult, Image.Image]] = []
+    creatives: list[tuple[CreativeResult, Image.Image, Image.Image]] = []
     heroes: list[Hero] = []
     for product in brief.products:
         hero_img, hero = get_hero(product, brand, assets_dir, provider, run_dir)  # once per product
         heroes.append(hero)
-        subject = subject_box(hero_img)  # once per product; reported, never used for layout
+        subject = subject_box(hero_img)  # once per product; feeds the QA gate, never the layout
         for locale in brief.locales:
             message = brief.message[locale]  # Brief guarantees the key; no fallback
             for ratio in brief.aspect_ratios:
@@ -46,5 +46,5 @@ def run_pipeline(
                     path=creative_path(product.id, locale, ratio),
                     source=hero.source, locale=locale, checks=check_brand(img, brand, lockup, box),
                 )
-                creatives.append((result, img))
+                creatives.append((result, img, debug_overlay(img, box, lockup.box)))
     return save_run(creatives, heroes, brief.campaign_id, provider.name, run_dir)

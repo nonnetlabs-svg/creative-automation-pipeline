@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from pipeline.models import BrandRules
 from pipeline.providers import MODELS, ElevenLabsProvider, MockProvider, ProviderError
 from pipeline.runner import run_pipeline
+from pipeline.stages import debug_path
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -73,3 +74,10 @@ def run(
             f"{ck.brand_color_share:.2f}"
         )
     typer.echo(f"{len(manifest.creatives)} creatives -> {out / manifest.campaign_id}")
+    # QA gate (B5): after everything is written, so outputs and overlays stay for review.
+    overlaps = [c for c in manifest.creatives if c.checks.overlaps_subject]
+    if overlaps:
+        typer.echo(f"QA gate failed: {len(overlaps)} creative(s) overlap the subject:", err=True)
+        for c in overlaps:
+            typer.echo(f"  {c.product_id} {c.locale} {c.ratio} -> {debug_path(c.path)}", err=True)
+        raise typer.Exit(3)

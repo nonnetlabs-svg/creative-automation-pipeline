@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 from typer.testing import CliRunner
 
 from pipeline.cli import app
@@ -33,7 +33,10 @@ def test_end_to_end_mock(tmp_path):
     result = invoke(EXAMPLES / "brief.json", tmp_path / "out", tmp_path / "no-assets")
     assert result.exit_code == 0, result.output
     run_dir = tmp_path / "out" / "fizz-summer-2026"
-    assert len(list(run_dir.rglob("*_*_*.png"))) == 30  # 2 products x 5 locales x 3 ratios
+    pngs = list(run_dir.rglob("*_*_*.png"))
+    assert len([p for p in pngs if "debug" not in p.parts]) == 30  # 2 products x 5 locales x 3 ratios
+    assert len(list((run_dir / "debug").rglob("*_debug.png"))) == 30  # one overlay each, outside
+    assert manifest_status(run_dir) == "ok"
     assert sorted(p.name for p in (run_dir / "heroes").iterdir()) == [
         "berry-soda.png", "citrus-soda.png"]  # raw generated heroes, for approval
     manifest = Manifest.model_validate_json((run_dir / "manifest.json").read_text())
@@ -44,6 +47,36 @@ def test_end_to_end_mock(tmp_path):
     assert {c.source for c in manifest.creatives} == {"generated"}
     assert all((run_dir / c.path).is_file() for c in manifest.creatives)
     assert "pt-BR" in result.output
+
+
+def manifest_status(run_dir):
+    return json.loads((run_dir / "manifest.json").read_text())["status"]
+
+
+def test_qa_gate_overlap_exits_3_and_keeps_outputs(tmp_path):
+    # A subject spanning the full width (wall and floor still sampled at top/bottom rows)
+    # collides with every lockup zone.
+    hero = Image.new("RGB", (1024, 1024), (200, 180, 240))
+    ImageDraw.Draw(hero).rectangle((0, 100, 1023, 700), fill=(220, 30, 30))
+    ImageDraw.Draw(hero).rectangle((0, 900, 1023, 1023), fill=(150, 80, 200))
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    for pid in ("citrus-soda", "berry-soda"):
+        hero.save(assets / f"{pid}.png")
+    result = invoke(EXAMPLES / "brief.json", tmp_path / "out", assets)
+    assert result.exit_code == 3, result.output
+    assert "citrus-soda de-DE 16:9 -> debug/citrus-soda/de-DE/16x9/citrus-soda_16x9_de-DE_debug.png" \
+        in result.output
+    run_dir = tmp_path / "out" / "fizz-summer-2026"
+    manifest = Manifest.model_validate_json((run_dir / "manifest.json").read_text())
+    flagged = [c for c in manifest.creatives if c.checks.overlaps_subject]
+    assert f"QA gate failed: {len(flagged)} creative(s) overlap the subject" in result.output
+    assert result.output.count(" -> debug/") == len(flagged)  # each one printed
+    # 1:1 never collides: its lockup sits a gap below the whole hero.
+    assert flagged and all(c.ratio != "1:1" for c in flagged)
+    assert manifest.status == "qa_failed"
+    assert len(list(run_dir.glob("*-soda/*/*/*.png"))) == 30  # outputs kept for review
+    assert len(list((run_dir / "debug").rglob("*_debug.png"))) == 30
 
 
 def test_hero_generated_once_per_product_across_locales(tmp_path):
