@@ -20,10 +20,9 @@
         "WALL_COLOR": "pale lime green",
         "FLOOR_COLOR": "bright chartreuse",
         "CAN_COLOR": "vivid green",
-        "CAN_SHAPES": "bold lime-slice circles and leaf shapes",
-        "ACCENT_COLOR": "watermelon pink",
+        "CAN_SHAPES": "bold lime-slice circles in lime green and cream, with watermelon-pink leaf shapes",
         "HERO_FRUIT": "one oversized fresh lime half, cut face toward camera",
-        "CUTOUT_SHAPES": "lime-slice and leaf shapes"
+        "CUTOUT_SHAPES": "lime-green lime-slice and leaf shapes, with a few watermelon-pink leaves"
       } },
     { "id": "berry-soda", "name": "Berry Soda",
       "description": "mixed berry soda in a purple aluminum can",
@@ -32,10 +31,9 @@
         "WALL_COLOR": "soft lilac",
         "FLOOR_COLOR": "orchid purple",
         "CAN_COLOR": "deep violet",
-        "CAN_SHAPES": "bold berry-cluster dots and leaf shapes",
-        "ACCENT_COLOR": "citrus yellow",
+        "CAN_SHAPES": "bold berry-cluster dots and leaf shapes in citrus yellow and cream",
         "HERO_FRUIT": "one oversized glossy blackberry with two raspberries",
-        "CUTOUT_SHAPES": "berry-cluster and leaf shapes"
+        "CUTOUT_SHAPES": "berry-cluster and leaf shapes in citrus yellow and a slightly deeper wall tone"
       } }
   ]
 }

@@ -6,9 +6,8 @@ import typer
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from pipeline.providers import (
-    DEFAULT_MODEL, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
-)
+from pipeline.models import BrandRules
+from pipeline.providers import MODELS, ElevenLabsProvider, MockProvider, ProviderError
 from pipeline.runner import run_pipeline
 
 app = typer.Typer(no_args_is_help=True)
@@ -49,12 +48,15 @@ def run(
     assets: Path = typer.Option(Path("assets/products"), help="Folder of reusable hero images."),
     out: Path = typer.Option(Path("outputs"), help="Output root; run goes in <out>/<campaign_id>."),
     provider: ProviderName = typer.Option(ProviderName.mock, help="Image provider."),
-    model: ModelName = typer.Option(DEFAULT_MODEL, help="ElevenLabs image model (mock ignores it)."),
+    model: ModelName | None = typer.Option(
+        None, help="Override brand.json hero_model for this run (mock ignores it)."),
 ) -> None:
     """Generate creatives for every product x locale x aspect ratio in BRIEF."""
     load_dotenv()  # here, not at import: real env vars still win, tests import cli cleanly
     try:
-        manifest = run_pipeline(brief, brand, assets, out, make_provider(provider, model.value))
+        # Inside the try: a missing or invalid brand.json is still one clean line, exit 1.
+        hero_model = model.value if model else BrandRules.model_validate_json(brand.read_text()).hero_model
+        manifest = run_pipeline(brief, brand, assets, out, make_provider(provider, hero_model))
     # ValueError covers BlockedCopyError, pydantic's ValidationError, the fit and square checks.
     except (ProviderError, ValueError, FileNotFoundError) as err:
         typer.echo(_one_line(err), err=True)

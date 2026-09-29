@@ -44,8 +44,8 @@ class MockProvider:
 
 API = "https://api.elevenlabs.io/v1/flows/image"
 # Both accept aspect_ratio "1:1" and resolution 1K/2K/4K; neither takes a seed (API docs, 2026-09).
+# No default here: brand.json's hero_model is the one source of truth (the CLI's --model overrides it).
 MODELS = {"gemini-3-pro-image": "Nano Banana Pro", "gpt-image-2.5-sunburst": "GPT Image 2.5 Sunburst"}
-DEFAULT_MODEL = "gemini-3-pro-image"
 # 2K: no ratio crops any more; each scales the 1:1 hero to 1080 px per side (9:16 by width,
 # 16:9 by height), so 2K downsamples with headroom. A 1K (1024 px) hero would be upscaled ~1.05x.
 DEFAULT_RESOLUTION = "2K"
@@ -60,7 +60,7 @@ class ElevenLabsProvider:
 
     name = "elevenlabs"
 
-    def __init__(self, api_key: str | None = None, model: str = DEFAULT_MODEL,
+    def __init__(self, model: str, api_key: str | None = None,
                  resolution: str = DEFAULT_RESOLUTION, client: httpx.Client | None = None,
                  poll_interval: float = 2.0, timeout: float = 120.0, sleep=time.sleep):
         if model not in MODELS:  # before any request: a typo costs $0

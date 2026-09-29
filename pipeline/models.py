@@ -5,6 +5,8 @@ from pydantic import (
     BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator,
 )
 
+from pipeline.providers import MODELS
+
 Ratio = Literal["1:1", "9:16", "16:9"]
 Source = Literal["reused", "generated"]
 Hex = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
@@ -105,7 +107,16 @@ class BrandRules(BaseModel):
     wordmark: str
     font: str  # resolved relative to brand.json by load_inputs
     hero_prompt_template: str
+    hero_model: str  # one model per run; the CLI's --model overrides it
     prohibited_words: list[str]
+
+    @field_validator("hero_model")
+    @classmethod
+    def known_model(cls, v: str) -> str:
+        # At load, so a typo in brand.json costs $0, same as a bad --model.
+        if v not in MODELS:
+            raise ValueError(f"unknown hero_model {v!r}; choose from {', '.join(MODELS)}")
+        return v
 
 
 class BrandChecks(BaseModel):

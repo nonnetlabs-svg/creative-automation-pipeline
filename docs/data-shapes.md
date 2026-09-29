@@ -47,11 +47,14 @@ file: the typeset `wordmark` is the logo (docs/creative-spec.md, B2).
   "wordmark": "FIZZ",
   "font": "../assets/fonts/BricolageGrotesque-ExtraBold.ttf",
   "hero_prompt_template": "Bold color-blocked studio product photograph ... flat {WALL_COLOR} wall ...\n\nAVOID: text, lettering, ...",
+  "hero_model": "gpt-image-2.5-sunburst",
   "prohibited_words": ["guaranteed", "cure", "free"]
 }
 ```
 `hero_prompt_template` is the spec's final template, filled with each product's `prompt_vars`.
 The AVOID line stays in the main prompt, because the image API has no negative-prompt field.
+`hero_model` must be a key of `providers.MODELS` (fails at load). It is the run's default model;
+the CLI's `--model` overrides it. One model per run (docs/creative-spec.md, B5).
 
 ## Manifest — outputs/<campaign_id>/manifest.json (feeds approval + analytics)
 ```json

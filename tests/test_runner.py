@@ -77,6 +77,20 @@ def test_cli_model_flag_ignored_by_mock(tmp_path):
     assert {(h.model, h.resolution) for h in manifest.heroes} == {(None, None)}
 
 
+@pytest.mark.parametrize("flag, expected", [
+    ([], "gpt-image-2.5-sunburst"),  # default comes from brand.json hero_model
+    (["--model", "gemini-3-pro-image"], "gemini-3-pro-image"),  # --model overrides it
+])
+def test_cli_model_defaults_to_brand_hero_model(tmp_path, monkeypatch, flag, expected):
+    seen = []
+    monkeypatch.setattr("pipeline.cli.make_provider",
+                        lambda provider, model: seen.append(model) or StubProvider())
+    args = ["run", str(EXAMPLES / "brief.json"), "--brand", str(BRAND), "--assets",
+            str(tmp_path), "--out", str(tmp_path / "out"), *flag]
+    assert CliRunner().invoke(app, args).exit_code == 0
+    assert seen == [expected]  # one model for the whole run
+
+
 def test_blocked_copy_exits_1_and_writes_nothing(tmp_path, blocked_brief):
     out = tmp_path / "out"
     result = invoke(blocked_brief, out, tmp_path / "no-assets")

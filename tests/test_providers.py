@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from pipeline.providers import (
-    DEFAULT_MODEL, DEFAULT_RESOLUTION, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
+    DEFAULT_RESOLUTION, MODELS, ElevenLabsProvider, MockProvider, ProviderError,
 )
 
 KEY = "sk-fake-test-key"  # never a real key; asserted absent from every error message
@@ -43,6 +43,7 @@ def png_bytes() -> bytes:
 
 
 def eleven(handler, **kwargs) -> ElevenLabsProvider:
+    kwargs.setdefault("model", "gemini-3-pro-image")
     client = httpx.Client(transport=httpx.MockTransport(handler))
     return ElevenLabsProvider(api_key=KEY, client=client, sleep=lambda s: None, **kwargs)
 
@@ -105,8 +106,8 @@ def test_elevenlabs_unknown_model_fails_before_any_request():
     assert calls == []
 
 
-def test_default_is_nano_banana_pro_2k():
-    assert (DEFAULT_MODEL, DEFAULT_RESOLUTION) == ("gemini-3-pro-image", "2K")
+def test_default_resolution_is_2k():
+    assert DEFAULT_RESOLUTION == "2K"  # the model default lives in brand.json, not here
 
 
 def test_mock_ignores_model_and_resolution():
@@ -116,7 +117,7 @@ def test_mock_ignores_model_and_resolution():
 def test_elevenlabs_missing_key(monkeypatch):
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     with pytest.raises(ProviderError, match="ELEVENLABS_API_KEY is not set"):
-        ElevenLabsProvider()
+        ElevenLabsProvider(model="gpt-image-2.5-sunburst")
 
 
 @pytest.mark.parametrize("status, code, match", [

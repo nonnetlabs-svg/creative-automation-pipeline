@@ -1,8 +1,9 @@
 # FIZZ Creative Spec (frozen)
 
 How to read this doc: B1 is the base spec. B2 supersedes B1's BAND, TAGLINE,
-LOGO, and LAYOUT PER RATIO sections. The final section, "Scope for this build:
-B2-lite", decides what is built now. Anything tagged [DEFERRED] is a README
+LOGO, and LAYOUT PER RATIO sections. "Scope for this build: B2-lite" decides
+what was built first. B5 (last section) supersedes B2 and B2-lite where noted:
+1:1 layout, wordmark sizing, collision handling, hero model. Anything tagged [DEFERRED] is a README
 next step, not part of this build.
 
 ---
@@ -116,14 +117,12 @@ SET: seamless two-tone set — flat {WALL_COLOR} wall meeting a flat
 gradient, no vignette, no texture, edges of frame completely empty.
 
 CAN: glossy {CAN_COLOR} can decorated with large playful abstract
-paper-cutout shapes — {CAN_SHAPES} — in {ACCENT_COLOR} and cream. Graphic
-shapes only, absolutely no letters, words, numbers, logos or symbols.
+paper-cutout shapes — {CAN_SHAPES}. Graphic shapes only, absolutely no letters, words, numbers, logos or symbols.
 Heavy fresh condensation beads on the can only.
 
-PROPS: can stands on a short matte cylindrical plinth in {FLOOR_COLOR}.
-Beside it, {HERO_FRUIT}. Behind the can, a few flat matte paper-cutout
-{CUTOUT_SHAPES} in {ACCENT_COLOR} and a slightly deeper wall tone, floating
-close to the can. All props within the center half of the frame.
+PROPS: can stands on a short matte cylindrical plinth one shade deeper than
+{FLOOR_COLOR}. Beside it, {HERO_FRUIT}. Behind the can, a few flat matte
+paper-cutout {CUTOUT_SHAPES}, floating close to the can. All props within the center half of the frame.
 
 LIGHT: hard direct sunlight from upper left, crisp defined cast shadows to
 the lower right, bright and high-key, saturated but clean color.
@@ -139,24 +138,27 @@ AVOID: text, lettering, typography, labels, logos, watermarks, splashes,
 liquid explosions, scattered droplets on the set, busy backgrounds,
 gradients, grey tones, moody lighting, multiple cans.
 
-FILL-INS
+FILL-INS (B5: shape vars carry their own colors; ACCENT_COLOR removed)
                  LIME                                BERRY
 WALL_COLOR       pale lime green                     soft lilac
 FLOOR_COLOR      bright chartreuse                   orchid purple
 CAN_COLOR        vivid green                         deep violet
-CAN_SHAPES       bold lime-slice circles and         bold berry-cluster dots
-                 leaf shapes                         and leaf shapes
-ACCENT_COLOR     watermelon pink                     citrus yellow
+CAN_SHAPES       bold lime-slice circles in lime     bold berry-cluster dots
+                 green and cream, with               and leaf shapes in citrus
+                 watermelon-pink leaf shapes         yellow and cream
 HERO_FRUIT       one oversized fresh lime half,      one oversized glossy
                  cut face toward camera              blackberry with two
                                                      raspberries
-CUTOUT_SHAPES    lime-slice and leaf shapes          berry-cluster and leaf
-                                                     shapes
+CUTOUT_SHAPES    lime-green lime-slice and leaf      berry-cluster and leaf
+                 shapes, with a few                  shapes in citrus yellow
+                 watermelon-pink leaves              and a slightly deeper
+                                                     wall tone
 
 GENERATION RULES
 - Store the template and fill-ins as config; substitute variables at
   runtime. Do not hand-edit per product.
-- Same model and settings for both products.
+- Same model and settings for both products (B5: one model per run, from
+  brand.json hero_model).
 - If the model has a negative-prompt field, send the AVOID line there and
   keep it in the main prompt as well. If not, main prompt only.
 - Use color words in prompts, not hex codes. Exact brand hex values are
@@ -190,3 +192,49 @@ Deferred (README next steps, do NOT build):
 - Multi-seed candidate generation command
 
 Spec is frozen. New creative ideas go to README next steps.
+
+---
+
+## B5 (supersedes B2 where noted)
+
+HERO MODEL
+- GPT Image 2.5 Sunburst (`gpt-image-2.5-sunburst`), set as `hero_model` in
+  brand.json and validated at load. `--model` overrides it for one run.
+- One model per run: a run has one provider, so generated heroes never mix
+  models. A reused hero may have been made by another model; the pipeline
+  never reads its sidecar, so approving the hero (with its sidecar) is the
+  human check.
+- Prompt: the template no longer adds "{ACCENT_COLOR} and cream" to the
+  shapes; each product's shape vars name their own colors (see FILL-INS).
+  Berry's text moved into its vars unchanged. The plinth is "one shade deeper
+  than {FLOOR_COLOR}", so it separates from the floor. Berry's approved hero
+  keeps its original prompt in its sidecar.
+
+1:1 LAYOUT (supersedes B2 1:1)
+- Hero scaled to 0.78 of the frame (HERO_SCALE_1x1), anchored top-center.
+  Sides are edge-padded; the bottom is padded with floor color.
+- Lockup zone = the new floor band: from a 4% gap below the hero to a 6%
+  bottom margin, 8% side margins. At 0.78 all 5 taglines fit on one line;
+  the largest scale that still fits them at target size is 0.795.
+- 9:16 and 16:9 zones and placement are unchanged.
+
+TYPE SCALE (supersedes B2 "wordmark ≈ 60% of tagline width" and auto-scale)
+                 1:1     9:16    16:9
+tagline target   48px    72px    112px
+wordmark         96px    144px   224px   (2x tagline target, every language)
+- Tagline: one line if it fits at target, else two balanced lines, else
+  shrink (min 18px). The load-time fit check still runs.
+- Color: deep color unless it measures < 4.5:1, then cream; if both fail,
+  whichever measures higher. lockup_contrast stays in the manifest.
+
+COLLISION QA GATE (supersedes B2-lite "report only")
+- overlaps_subject counts the 4% gap. After all creatives, the manifest and
+  debug overlays are written, any overlap sets manifest status "qa_failed",
+  is printed, and the CLI exits 3. Nothing is deleted: the outputs are kept
+  for review.
+- Debug overlays: debug/<creative path>_debug.png with the mapped subject box
+  and the lockup box drawn. They are not deliverables.
+- subject_box is color-based (pixels unlike the sampled wall and floor), so it
+  can miss low-contrast parts, e.g. a plinth close to the floor color. The
+  overlays are the human check. No subject detected → overlaps_subject null,
+  which does not fail the gate.

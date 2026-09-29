@@ -44,11 +44,13 @@ class ImageProvider(Protocol):          # plug-in slot: mock, ElevenLabs, later 
 
 ## Models (ElevenLabs)
 Registry in `providers.MODELS`. Only these two are accepted; any other id fails before a request.
+The default is brand.json `hero_model` (B5: Sunburst); `--model` overrides it for one run.
+There is no default in code.
 
 | model_id | name | sent |
 |---|---|---|
-| `gemini-3-pro-image` (default) | Nano Banana Pro | model_id, prompt, aspect_ratio "1:1", resolution |
-| `gpt-image-2.5-sunburst` | GPT Image 2.5 Sunburst | same; `quality` not sent (API default "high") |
+| `gemini-3-pro-image` | Nano Banana Pro | model_id, prompt, aspect_ratio "1:1", resolution |
+| `gpt-image-2.5-sunburst` (brand default) | GPT Image 2.5 Sunburst | same; `quality` not sent (API default "high") |
 
 Resolution is config only: `DEFAULT_RESOLUTION = "2K"`. No ratio crops; each scales the 1:1 hero to
 1080 px per side, so 2K downsamples with headroom (1K would be a slight ~1.05x upscale).
@@ -86,8 +88,8 @@ class ProviderError(RuntimeError)                         # provider failed; mes
 ```
 CLI: `python -m pipeline run <brief> [--brand examples/brand.json]
 [--assets assets/products] [--out outputs] [--provider mock|elevenlabs]
-[--model gemini-3-pro-image|gpt-image-2.5-sunburst]`. `--model` is ignored by mock;
-an unknown value is a usage error (exit 2).
+[--model gemini-3-pro-image|gpt-image-2.5-sunburst]`. `--model` overrides brand.json `hero_model`
+and is ignored by mock; an unknown value is a usage error (exit 2).
 `elevenlabs` reads `ELEVENLABS_API_KEY` from `.env` (loaded by the CLI only).
 Prints a summary table (product, locale, ratio, source, lockup color + contrast, overlap, color).
 Exit 1 with one clean line on blocked copy, provider error, invalid input (pydantic), a tagline

@@ -126,6 +126,12 @@ def test_rejects_non_hex_color(brand):
         BrandRules.model_validate(brand)
 
 
+def test_brand_rejects_unknown_hero_model(brand):
+    brand["hero_model"] = "gemini-2.5-flash-image"  # retired: not in MODELS
+    with pytest.raises(ValidationError, match="unknown hero_model 'gemini-2.5-flash-image'"):
+        BrandRules.model_validate(brand)
+
+
 def test_brief_rejects_unknown_key(brief):
     brief["extra"] = 1
     with pytest.raises(ValidationError):
