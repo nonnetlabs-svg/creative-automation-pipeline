@@ -18,15 +18,17 @@ def get_hero(product: Product, brand: BrandRules, assets_dir: Path, provider: Im
                                      # entries stay source-only. Production equivalent: C2PA Content Credentials.
 def fit_to_ratio(hero: Image, ratio: str) -> Image                    # never crops: contain-scale, place, edge-pad
                                      # (averaged edge strip stretched: wall up/sides, floor down/sides).
-                                     # 9:16 subject at ~32-60% of height; 16:9 hero center at 62% of width
+                                     # 9:16 subject at ~32-60% of height; 16:9 hero center at 62% of width;
+                                     # 1:1 hero at HERO_SCALE_1x1 (0.78), top-center, floor band below (B5)
 def subject_box(hero: Image) -> Box | None                            # pixels unlike sampled wall (top rows) and
                                      # floor (bottom rows); used ONLY to report overlap (B2-lite)
 def map_box(box: Box, hero_size, ratio: str) -> Box                   # hero coords -> creative coords, same placement
-def lockup_zone(ratio: str, size) -> tuple[Box, str, str]            # fixed zone + (h, v) align from spec B2;
+def lockup_zone(ratio: str, size) -> tuple[Box, str, str]            # fixed zone + (h, v) align (B2; 1:1 B5);
                                      # one function so subject-aware placement can replace it
 def render_creative(img: Image, message: str, brand: BrandRules, deep_color: str,
-                    ratio: str) -> tuple[Image, Lockup]               # FIZZ over <=2 balanced tagline lines;
-                                     # deep color, cream if contrast vs. pixels behind < 4.5:1
+                    ratio: str) -> tuple[Image, Lockup]               # FIZZ (fixed px per ratio) over tagline
+                                     # at TAGLINE_PX[ratio]: 1 line, else 2 balanced, else shrink (>= 18px);
+                                     # deep color; if < 4.5:1, cream when it measures higher (B5)
 def check_brand(img: Image, brand: BrandRules, lockup: Lockup,
                 subject: Box | None) -> BrandChecks                   # report only, never raises;
                                      # prohibited_words always [] (check_copy stops the run first)

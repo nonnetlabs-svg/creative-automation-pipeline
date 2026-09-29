@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from pipeline.models import CreativeResult, GeneratedHero, Manifest
 from pipeline.providers import MockProvider
 from pipeline.stages import (
-    SIZES, Lockup, _set_lockup, check_brand, check_copy, creative_path, fit_to_ratio, get_hero,
+    HERO_SCALE_1x1, SIZES, TAGLINE_PX, Lockup, _set_lockup, check_brand, check_copy, creative_path, fit_to_ratio, get_hero,
     load_inputs, lockup_zone, map_box, render_creative, save_run, subject_box,
 )
 
@@ -183,6 +183,7 @@ def two_tone(wall=(200, 220, 150), floor=(120, 200, 40), size=(1024, 1024)):
 
 
 @pytest.mark.parametrize("ratio, pad_xys", [
+    ("1:1", {"wall": [(5, 5), (1075, 300)], "floor": [(540, 1075), (5, 1075)]}),  # sides + bottom
     ("9:16", {"wall": [(540, 5), (5, 300)], "floor": [(540, 1915), (1075, 1700)]}),
     ("16:9", {"wall": [(5, 5), (1915, 300)], "floor": [(5, 1075), (1915, 900)]}),
 ])
@@ -247,9 +248,16 @@ def test_9x16_zone_inside_safe_zone_and_centered():
                                                    # (+0.5: zone edges are rounded to pixels)
 
 
-def test_1x1_zone_a_gap_below_plinth_base():
+def test_1x1_hero_top_center_at_scale():
+    x0, y0, x1, y1 = map_box((0, 0, 1024, 1024), (1024, 1024), "1:1")
+    assert y0 == 0 and (x0 + x1) / 2 == pytest.approx(540, abs=1)  # anchored top-center
+    assert x1 - x0 == y1 - y0 == round(HERO_SCALE_1x1 * 1080)
+
+
+def test_1x1_zone_a_gap_below_hero():
+    _, _, _, hero_y1 = map_box((0, 0, 1024, 1024), (1024, 1024), "1:1")
     (_, y0, _, y1), *_ = lockup_zone("1:1", (1080, 1080))
-    assert y0 >= 0.70 * 1080 + 0.04 * 1080 - 0.5 and y1 == round(0.94 * 1080)  # 6% bottom margin
+    assert y0 >= hero_y1 + 0.04 * 1080 - 0.5 and y1 == round(0.94 * 1080)  # 6% bottom margin
 
 
 def test_16x9_zone_left_of_hero_center_half():
@@ -272,12 +280,24 @@ def test_lockup_stays_in_zone(inputs, ratio, locale):
 def test_long_tagline_two_balanced_lines(inputs):
     _, brand = inputs
     text = "An unusually long summer tagline for this zone"
-    ops, _ = _set_lockup(*lockup_zone("9:16", SIZES["9:16"]), text, brand.font, brand.wordmark)
+    ops, _ = _set_lockup(*lockup_zone("9:16", SIZES["9:16"]), text, brand.font, brand.wordmark,
+                         TAGLINE_PX["9:16"])
     wordmark, *lines = [t for _, t, _, _ in ops]
     assert wordmark == "FIZZ" and len(lines) == 2 and " ".join(lines) == text
+    assert ops[0][2].size == 2 * TAGLINE_PX["9:16"]  # wordmark fixed even when the tagline shrinks
     font = ops[1][2]
     w1, w2 = (font.getlength(ln) for ln in lines)
     assert abs(w1 - w2) < 0.5 * max(w1, w2)  # balanced, not greedy
+
+
+@pytest.mark.parametrize("ratio", RATIOS)
+def test_fixed_type_scale_across_locales(inputs, ratio):
+    brief, brand = inputs
+    sizes = [[f.size for _, _, f, _ in _set_lockup(*lockup_zone(ratio, SIZES[ratio]), brief.message[loc],
+                                                   brand.font, brand.wordmark, TAGLINE_PX[ratio])[0]]
+             for loc in brief.locales]
+    assert {s[0] for s in sizes} == {2 * TAGLINE_PX[ratio]}  # one wordmark size for every language
+    assert {s[1] for s in sizes} == {TAGLINE_PX[ratio]}  # all 5 example taglines fit at target
 
 
 @pytest.mark.parametrize("bg, expected", [("#000000", CREAM), (CREAM, DEEP)])
@@ -286,6 +306,14 @@ def test_lockup_color_by_contrast(inputs, bg, expected):
     _, lockup = render_creative(Image.new("RGB", SIZES["1:1"], bg), "Taste the summer", brand,
                                 DEEP, "1:1")
     assert lockup.color == expected and lockup.contrast >= 4.5
+
+
+@pytest.mark.parametrize("bg, expected", [("#808080", CREAM), ("#BCBCBC", DEEP)])
+def test_lockup_color_both_fail_picks_higher(inputs, bg, expected):
+    _, brand = inputs  # mid tones: neither deep (#1F5E2E) nor cream reaches 4.5:1
+    _, lockup = render_creative(Image.new("RGB", SIZES["1:1"], bg), "Taste the summer", brand,
+                                DEEP, "1:1")
+    assert lockup.color == expected and lockup.contrast < 4.5
 
 
 def test_font_covers_every_message_glyph(inputs):

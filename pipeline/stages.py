@@ -22,8 +22,10 @@ SIZES = {"1:1": (1080, 1080), "9:16": (1080, 1920), "16:9": (1920, 1080)}
 # Prompt COMPOSITION puts the can top at ~20% and plinth base at ~70% of the hero: center 45%.
 HERO_SUBJECT_Y = 0.45
 # Frame row for that center (9:16: subject lands at ~32-60%, inside the spec's 30-62%) and
-# frame column for the hero's center (16:9: 62% per spec). Clamping makes 1:1 and 16:9 rows moot.
+# frame column for the hero's center (16:9: 62% per spec). Clamping makes the 16:9 row moot;
+# 1:1 ignores it (top-anchored, spec B5).
 SUBJECT_Y: dict[Ratio, float] = {"1:1": 0.5, "9:16": 0.46, "16:9": 0.5}
+HERO_SCALE_1x1 = 0.78  # spec B5: 1:1 hero at 78%, top-center; the floor band below holds the lockup
 CENTER_X: dict[Ratio, float] = {"1:1": 0.5, "9:16": 0.5, "16:9": 0.62}
 PAD_STRIP = 16  # px of hero edge averaged into each pad
 SAMPLE_ROWS = 0.05  # top/bottom share of hero sampled for wall/floor color
@@ -31,7 +33,10 @@ SUBJECT_TOLERANCE = 40  # max channel diff from both wall and floor to count as 
 GAP_SHARE = 0.04  # min lockup-subject gap, of the short edge (spec B2)
 MIN_TYPE = 18  # px; below this the tagline "can't fit" (fallback band is deferred)
 COARSE_STEP = 8  # px per step in the lockup size search, before 1px refinement
-WORDMARK_SHARE = 0.6  # wordmark width / tagline block width
+# Spec B5 fixed type scale: tagline target per ratio (shrinks only if it can't fit), and a
+# wordmark fixed per ratio, identical across languages.
+TAGLINE_PX: dict[Ratio, int] = {"1:1": 48, "9:16": 72, "16:9": 112}
+WORDMARK_TO_TAGLINE = 2.0  # wordmark px / tagline target px
 WORDMARK_GAP = 0.25  # wordmark-to-tagline gap, of tagline size
 LEADING = 1.0  # tagline baseline-to-baseline, of tagline size
 CONTRAST_MIN = 4.5  # WCAG AA; below this the lockup switches to the cream fallback
@@ -61,7 +66,7 @@ def load_inputs(brief_path: Path, brand_path: Path) -> tuple[Brief, BrandRules]:
         for ratio in brief.aspect_ratios:
             try:
                 _set_lockup(*lockup_zone(ratio, SIZES[ratio]), brief.message[loc], str(font),
-                            brand.wordmark)
+                            brand.wordmark, TAGLINE_PX[ratio])
             except ValueError as err:
                 raise ValueError(f"{loc} {ratio}: {err}") from None
     return brief, brand.model_copy(update={"font": str(font)})
@@ -115,9 +120,13 @@ def _placement(hero_size: tuple[int, int], ratio: Ratio) -> tuple[float, int, in
     """Scale and top-left offset of the hero in the frame; shared by the fit and the subject box."""
     (W, H), (w, h) = SIZES[ratio], hero_size
     scale = min(W / w, H / h)  # contain: the hero is never cropped
+    if ratio == "1:1":
+        scale *= HERO_SCALE_1x1
     fw, fh = round(w * scale), round(h * scale)
     x = min(max(round(W * CENTER_X[ratio] - fw / 2), 0), W - fw)
     y = min(max(round(H * SUBJECT_Y[ratio] - fh * HERO_SUBJECT_Y), 0), H - fh)
+    if ratio == "1:1":
+        y = 0  # top-center: the floor pad below is the lockup zone
     return scale, x, y
 
 
@@ -172,15 +181,15 @@ def map_box(box: Box, hero_size: tuple[int, int], ratio: Ratio) -> Box:
 
 
 def lockup_zone(ratio: Ratio, size: tuple[int, int]) -> tuple[Box, str, str]:
-    """Fixed zone + (h, v) alignment per ratio from spec B2. Subject-aware placement replaces this."""
+    """Fixed zone + (h, v) alignment per ratio (spec B2; 1:1 per B5). Subject-aware placement replaces this."""
     W, H = size
     gap = GAP_SHARE * min(W, H)
     if ratio == "9:16":  # safe zone (top 14%, left 6%, right 15%), centered on the can's axis,
         box, align = (0.15 * W, 0.14 * H, 0.85 * W, 0.30 * H - gap), ("center", "middle")  # above subject
     elif ratio == "16:9":  # left margin 8%, stops a gap short of the hero's center half
         box, align = (0.08 * W, 0.10 * H, 0.62 * W - H / 4 - gap, 0.90 * H), ("left", "middle")
-    else:  # 1:1: floor zone a gap below the plinth base (~70%), 6% bottom margin
-        box, align = (0.08 * W, 0.70 * H + gap, 0.92 * W, 0.94 * H), ("center", "bottom")
+    else:  # 1:1: floor band a gap below the scaled hero (square, so its bottom <= this), 6% margin
+        box, align = (0.08 * W, HERO_SCALE_1x1 * H + gap, 0.92 * W, 0.94 * H), ("center", "bottom")
     return tuple(round(v) for v in box), *align
 
 
@@ -189,8 +198,8 @@ def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(path, size)
 
 
-def _layout_at(size: int, zone: Box, h_align: str, v_align: str, message: str, font_path: str,
-               wordmark: str) -> tuple[list, Box] | None:
+def _layout_at(size: int, wm_size: int, zone: Box, h_align: str, v_align: str, message: str,
+               font_path: str, wordmark: str) -> tuple[list, Box] | None:
     """Wordmark over <=2 balanced tagline lines at one tagline size; None if it overflows."""
     x0, y0, x1, y1 = zone
     words = message.split()
@@ -198,8 +207,8 @@ def _layout_at(size: int, zone: Box, h_align: str, v_align: str, message: str, f
     font = _font(font_path, size)
     width = lambda lines: max(font.getlength(ln) for ln in lines)  # noqa: E731
     lines = [message] if font.getlength(message) <= x1 - x0 else min(splits, key=width, default=[message])
-    block_w = width(lines)
-    wm = _font(font_path, max(1, round(size * WORDMARK_SHARE * block_w / font.getlength(wordmark))))
+    wm = _font(font_path, wm_size)
+    block_w = max(width(lines), wm.getlength(wordmark))
     wm_h = -wm.getbbox(wordmark, anchor="ls")[1]
     ascent = -min(font.getbbox(ln, anchor="ls")[1] for ln in lines)  # includes accents
     descent = font.getbbox(lines[-1], anchor="ls")[3]
@@ -217,10 +226,13 @@ def _layout_at(size: int, zone: Box, h_align: str, v_align: str, message: str, f
 
 
 def _set_lockup(zone: Box, h_align: str, v_align: str, message: str, font_path: str,
-                wordmark: str) -> tuple[list, Box]:
-    """Largest tagline size that fits the zone. Layout only, no pixels; raises below MIN_TYPE."""
-    layout = lambda s: _layout_at(s, zone, h_align, v_align, message, font_path, wordmark)  # noqa: E731
-    start = max(min(zone[2] - zone[0], zone[3] - zone[1]) // 2, MIN_TYPE)
+                wordmark: str, target: int) -> tuple[list, Box]:
+    """Tagline at target, else the largest smaller size that fits; wordmark fixed at 2x target.
+    Layout only, no pixels; raises below MIN_TYPE."""
+    wm_size = round(target * WORDMARK_TO_TAGLINE)
+    layout = lambda s: _layout_at(s, wm_size, zone, h_align, v_align, message, font_path,  # noqa: E731
+                                  wordmark)
+    start = max(target, MIN_TYPE)
     # Coarse steps down, then 1px refinement up: ~6x fewer layouts than stepping 1px from the top.
     sizes = [*range(start, MIN_TYPE, -COARSE_STEP), MIN_TYPE]
     size, result = next(((s, r) for s in sizes if (r := layout(s))), (None, None))
@@ -257,11 +269,14 @@ def render_creative(img: Image.Image, message: str, brand: BrandRules, deep_colo
                     ratio: Ratio) -> tuple[Image.Image, Lockup]:
     out = img.convert("RGB")  # always a copy; caller's image is untouched
     # load_inputs already proved the fit; a raise here is a safety assert, not a normal path.
-    ops, box = _set_lockup(*lockup_zone(ratio, out.size), message, brand.font, brand.wordmark)
+    ops, box = _set_lockup(*lockup_zone(ratio, out.size), message, brand.font, brand.wordmark,
+                           TAGLINE_PX[ratio])
     behind = out.crop(box)  # measured before drawing: the pixels the type will sit on
     color, contrast = deep_color, _contrast(deep_color, behind)
-    if contrast < CONTRAST_MIN:  # cream may also fail: reported, not fixed (fallback band deferred)
-        color, contrast = brand.text_fallback_color, _contrast(brand.text_fallback_color, behind)
+    if contrast < CONTRAST_MIN:  # cream if it measures higher; if both fail, the higher one (B5)
+        cream = _contrast(brand.text_fallback_color, behind)
+        if cream > contrast:
+            color, contrast = brand.text_fallback_color, cream
     draw = ImageDraw.Draw(out)
     for xy, text, font, anchor in ops:
         draw.text(xy, text, font=font, fill=color, anchor=anchor)

@@ -121,7 +121,7 @@ class BrandRules(BaseModel):
 
 class BrandChecks(BaseModel):
     lockup_contrast: float  # WCAG ratio of lockup_color vs. the pixels behind the lockup
-    lockup_color: Hex  # product deep color, or the cream fallback when contrast < 4.5
+    lockup_color: Hex  # deep color; cream if deep < 4.5 and cream measures higher
     overlaps_subject: bool | None  # report only (B2-lite); None when no subject was detected
     brand_color_share: float = Field(ge=0, le=1)
     prohibited_words: list[str]
