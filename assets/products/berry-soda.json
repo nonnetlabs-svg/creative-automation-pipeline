@@ -1,0 +1,11 @@
+{
+  "product_id": "berry-soda",
+  "source": "generated",
+  "model": "gpt-image-2.5-sunburst",
+  "resolution": "2K",
+  "prompt": "Bold color-blocked studio product photograph of a single unbranded aluminum soda can, centered, front-facing, eye-level, 50mm lens.\n\nSET: seamless two-tone set \u2014 flat soft lilac wall meeting a flat orchid purple floor in a clean horizontal line. Solid colors only, no gradient, no vignette, no texture, edges of frame completely empty.\n\nCAN: glossy deep violet can decorated with large playful abstract paper-cutout shapes \u2014 bold berry-cluster dots and leaf shapes \u2014 in citrus yellow and cream. Graphic shapes only, absolutely no letters, words, numbers, logos or symbols. Heavy fresh condensation beads on the can only.\n\nPROPS: can stands on a short matte cylindrical plinth in orchid purple. Beside it, one oversized glossy blackberry with two raspberries. Behind the can, a few flat matte paper-cutout berry-cluster and leaf shapes in citrus yellow and a slightly deeper wall tone, floating close to the can. All props within the center half of the frame.\n\nLIGHT: hard direct sunlight from upper left, crisp defined cast shadows to the lower right, bright and high-key, saturated but clean color.\n\nCOMPOSITION: square 1:1, can occupies about 25% of frame width, top of can at roughly 20% of frame height, plinth base at roughly 70% of frame height. Bottom quarter of the frame is empty flat floor. Generous empty color above and to the sides. All props within the center half of the frame. Minimal, whimsical, premium, editorial \u2014 in the spirit of modern craft soda packaging campaigns.\n\nAVOID: text, lettering, typography, labels, logos, watermarks, splashes, liquid explosions, scattered droplets on the set, busy backgrounds, gradients, grey tones, moody lighting, multiple cans.",
+  "path": "heroes/berry-soda.png",
+  "approved_from": "outputs/ab-sunburst",
+  "approved_on": "2026-09-29",
+  "approved_by": "JP"
+}
