@@ -40,7 +40,8 @@ MIN_TYPE = 18  # px; below this the tagline "can't fit" (fallback band is deferr
 COARSE_STEP = 8  # px per step in the lockup size search, before 1px refinement
 # Spec B5 fixed type scale: tagline target per ratio (shrinks only if it can't fit), and a
 # wordmark fixed per ratio, identical across languages.
-TAGLINE_PX: dict[Ratio, int] = {"1:1": 48, "9:16": 72, "16:9": 112}
+# 16:9 was 112: de-DE's ink came within the 4% gap of berry's cutouts on the pixel check.
+TAGLINE_PX: dict[Ratio, int] = {"1:1": 48, "9:16": 72, "16:9": 96}
 WORDMARK_TO_TAGLINE = 2.0  # wordmark px / tagline target px
 WORDMARK_GAP = 0.25  # wordmark-to-tagline gap, of tagline size
 LEADING = 1.0  # tagline baseline-to-baseline, of tagline size
@@ -158,8 +159,13 @@ def fit_to_ratio(hero: Image.Image, ratio: Ratio) -> Image.Image:
     return _pad_vertical(img.transpose(t), x, W - x - img.width).transpose(t)
 
 
-def subject_box(hero: Image.Image) -> Box | None:
-    """Box of pixels unlike both the wall (top rows) and floor (bottom rows); None if none."""
+class Subject(NamedTuple):
+    box: Box  # hero coords; bounding box, drawn on the debug overlay
+    mask: Image.Image  # "L", 255 = subject, at detection size (hero aspect); feeds the QA gate
+
+
+def subject_box(hero: Image.Image) -> Subject | None:
+    """Pixels unlike both the wall (top rows) and floor (bottom rows): mask + box; None if none."""
     small = hero.convert("RGB")
     small.thumbnail((256, 256))
     w, h = small.size
@@ -170,11 +176,12 @@ def subject_box(hero: Image.Image) -> Box | None:
         r, g, b = ImageChops.difference(small, Image.new("RGB", small.size, color)).split()
         far = ImageChops.lighter(ImageChops.lighter(r, g), b)  # max channel difference
         masks.append(far.point(lambda v: 255 if v > SUBJECT_TOLERANCE else 0))
-    box = ImageChops.darker(*masks).filter(ImageFilter.MedianFilter(5)).getbbox()
+    mask = ImageChops.darker(*masks).filter(ImageFilter.MedianFilter(5))
+    box = mask.getbbox()
     if box is None:
         return None
     k = hero.width / w
-    return tuple(round(v * k) for v in box)
+    return Subject(tuple(round(v * k) for v in box), mask)
 
 
 def map_box(box: Box, hero_size: tuple[int, int], ratio: Ratio) -> Box:
@@ -183,6 +190,15 @@ def map_box(box: Box, hero_size: tuple[int, int], ratio: Ratio) -> Box:
     x0, y0, x1, y1 = box
     return (x + round(x0 * scale), y + round(y0 * scale),
             x + round(x1 * scale), y + round(y1 * scale))
+
+
+def map_mask(mask: Image.Image, hero_size: tuple[int, int], ratio: Ratio) -> Image.Image:
+    """Detection-size subject mask -> creative-size mask, using the same placement as fit_to_ratio."""
+    scale, x, y = _placement(hero_size, ratio)
+    out = Image.new("L", SIZES[ratio])
+    out.paste(mask.resize((round(hero_size[0] * scale), round(hero_size[1] * scale)), Image.NEAREST),
+              (x, y))
+    return out
 
 
 def lockup_zone(ratio: Ratio, size: tuple[int, int]) -> tuple[Box, str, str]:
@@ -300,7 +316,7 @@ def _color_share(img: Image.Image, colors: list[str]) -> float:
 
 
 def check_brand(img: Image.Image, brand: BrandRules, lockup: Lockup,
-                subject: Box | None) -> BrandChecks:
+                subject: Image.Image | None) -> BrandChecks:
     # Report only: a failed check is a finding, never a crash.
     try:
         share = _color_share(img, brand.colors)
@@ -308,9 +324,10 @@ def check_brand(img: Image.Image, brand: BrandRules, lockup: Lockup,
         log.warning("color check failed", exc_info=True)
         share = 0.0
     overlaps = None  # no subject detected: unknown, not "clear"
-    if subject is not None:
-        g, (a, b) = GAP_SHARE * min(img.size), (lockup.box, subject)
-        overlaps = a[0] - g < b[2] and b[0] < a[2] + g and a[1] - g < b[3] and b[1] < a[3] + g
+    if subject is not None:  # creative-size mask: any subject pixel within the gap of the lockup
+        g, (x0, y0, x1, y1) = GAP_SHARE * min(img.size), lockup.box
+        near = subject.crop((round(x0 - g), round(y0 - g), round(x1 + g), round(y1 + g)))
+        overlaps = near.getbbox() is not None  # pixels, not the bounding box: empty corners are clear
     # Copy is checked up front by check_copy, which stops the run on any hit.
     return BrandChecks(lockup_contrast=lockup.contrast, lockup_color=lockup.color,
                        overlaps_subject=overlaps, brand_color_share=share, prohibited_words=[])

@@ -7,7 +7,7 @@ from pipeline.models import CreativeResult, Hero, Manifest
 from pipeline.providers import ImageProvider
 from pipeline.stages import (
     check_brand, check_copy, creative_path, debug_overlay, fit_to_ratio, get_hero, load_inputs,
-    map_box, render_creative, save_run, subject_box,
+    map_box, map_mask, render_creative, save_run, subject_box,
 )
 
 
@@ -40,11 +40,14 @@ def run_pipeline(
             for ratio in brief.aspect_ratios:
                 img, lockup = render_creative(fit_to_ratio(hero_img, ratio), message, brand,
                                               product.deep_color, ratio)
-                box = None if subject is None else map_box(subject, hero_img.size, ratio)
+                box = mask = None
+                if subject is not None:  # mask for the gate, box for the overlay
+                    box = map_box(subject.box, hero_img.size, ratio)
+                    mask = map_mask(subject.mask, hero_img.size, ratio)
                 result = CreativeResult(
                     product_id=product.id, ratio=ratio,
                     path=creative_path(product.id, locale, ratio),
-                    source=hero.source, locale=locale, checks=check_brand(img, brand, lockup, box),
+                    source=hero.source, locale=locale, checks=check_brand(img, brand, lockup, mask),
                 )
                 creatives.append((result, img, debug_overlay(img, box, lockup.box)))
     return save_run(creatives, heroes, brief.campaign_id, provider.name, run_dir)

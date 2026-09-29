@@ -10,7 +10,7 @@ from pipeline.providers import MockProvider
 from pipeline.stages import (
     DEBUG_LOCKUP, DEBUG_SUBJECT, HERO_SCALE_1x1, HORIZON_Y, SIZES, TAGLINE_PX, Lockup, _set_lockup,
     check_brand, check_copy, creative_path, debug_overlay, debug_path, fit_to_ratio, get_hero,
-    load_inputs, lockup_zone, map_box, render_creative, save_run, subject_box,
+    load_inputs, lockup_zone, map_box, map_mask, render_creative, save_run, subject_box,
 )
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
@@ -207,7 +207,7 @@ def test_placement_follows_spec():
 
 def test_subject_box_finds_mock_can_and_plinth():
     hero = MockProvider().generate("citrus")
-    box = subject_box(hero)
+    box = subject_box(hero).box
     expected = (1024 * 0.35, 1024 * 0.20, 1024 * 0.65, 1024 * 0.70)  # plinth width, can top..plinth base
     assert box == pytest.approx(expected, abs=12)
 
@@ -339,16 +339,54 @@ def test_font_covers_every_message_glyph(inputs):
     assert [c for c in sorted(chars) if glyph(c) == notdef] == []
 
 
+def mask_of(*rects, size=(1080, 1080)):
+    mask = Image.new("L", size)
+    for r in rects:
+        ImageDraw.Draw(mask).rectangle(r, fill=255)
+    return mask
+
+
 @pytest.mark.parametrize("subject, expected", [
-    ((150, 150, 300, 300), True),    # boxes intersect
+    ((150, 150, 300, 300), True),    # subject pixels under the lockup
     ((220, 100, 300, 200), True),    # 20 px apart: inside the 4% gap (43 px at 1080)
     ((300, 300, 400, 400), False),   # clear by more than the gap
     (None, None),                    # no subject detected: unknown, not clear
 ])
 def test_check_brand_overlaps_subject(inputs, subject, expected):
     _, brand = inputs
-    checks = check_brand(Image.new("RGB", (1080, 1080)), brand, LOCKUP, subject)
+    mask = None if subject is None else mask_of(subject)
+    checks = check_brand(Image.new("RGB", (1080, 1080)), brand, LOCKUP, mask)
     assert checks.overlaps_subject is expected
+
+
+def l_shaped_hero():
+    hero = two_tone()  # wall above 60%, floor below
+    draw = ImageDraw.Draw(hero)
+    draw.rectangle((700, 150, 780, 780), fill="red")  # upright
+    draw.rectangle((200, 700, 780, 780), fill="red")  # foot: empty corner at upper left
+    return hero
+
+
+@pytest.mark.parametrize("lockup_box, expected", [
+    ((320, 160, 560, 440), False),  # in the L's empty corner: inside the bounding box, clear of pixels
+    ((650, 300, 800, 400), True),   # over the upright's pixels
+])
+def test_overlap_uses_subject_pixels_not_bounding_box(inputs, lockup_box, expected):
+    _, brand = inputs
+    hero = l_shaped_hero()
+    subject = subject_box(hero)
+    if not expected:  # the corner lies inside the bounding box: a box check would have flagged it
+        bx0, by0, bx1, by1 = map_box(subject.box, hero.size, "1:1")
+        assert bx0 < lockup_box[0] and lockup_box[2] < bx1 and by0 < lockup_box[1] < lockup_box[3] < by1
+    mask = map_mask(subject.mask, hero.size, "1:1")
+    checks = check_brand(Image.new("RGB", SIZES["1:1"]), brand, Lockup(lockup_box, DEEP, 7.0), mask)
+    assert checks.overlaps_subject is expected
+
+
+@pytest.mark.parametrize("ratio", RATIOS)
+def test_map_mask_matches_map_box(ratio):
+    full = Image.new("L", (256, 256), 255)
+    assert map_mask(full, (1024, 1024), ratio).getbbox() == map_box((0, 0, 1024, 1024), (1024, 1024), ratio)
 
 
 def test_check_brand_color_share(inputs):
@@ -383,7 +421,7 @@ def test_save_run_writes_creatives_and_manifest(inputs, tmp_path):
 
 def test_save_run_overlap_sets_qa_failed(inputs, tmp_path):
     _, brand = inputs
-    checks = check_brand(Image.new("RGB", (1080, 1080)), brand, LOCKUP, (150, 150, 300, 300))
+    checks = check_brand(Image.new("RGB", (1080, 1080)), brand, LOCKUP, mask_of((150, 150, 300, 300)))
     result = CreativeResult(product_id="citrus-soda", ratio="1:1", source="generated", locale="en",
                             path=creative_path("citrus-soda", "en", "1:1"), checks=checks)
     img = Image.new("RGB", (8, 8))

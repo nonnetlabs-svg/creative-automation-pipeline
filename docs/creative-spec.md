@@ -228,21 +228,27 @@ HERO MODEL
 
 TYPE SCALE (supersedes B2 "wordmark ≈ 60% of tagline width" and auto-scale)
                  1:1     9:16    16:9
-tagline target   48px    72px    112px
-wordmark         96px    144px   224px   (2x tagline target, every language)
+tagline target   48px    72px    96px
+wordmark         96px    144px   192px   (2x tagline target, every language)
+- 16:9 was 112/224. On the pixel-based gate, de-DE ink came 28-43px from
+  berry's cutouts (inside the 4% gap); 96 clears it by ~119px.
 - Tagline: one line if it fits at target, else two balanced lines, else
   shrink (min 18px). The load-time fit check still runs.
 - Color: deep color unless it measures < 4.5:1, then cream; if both fail,
   whichever measures higher. lockup_contrast stays in the manifest.
 
 COLLISION QA GATE (supersedes B2-lite "report only")
-- overlaps_subject counts the 4% gap. After all creatives, the manifest and
+- overlaps_subject is pixel-based: True only if subject-mask pixels fall
+  inside the lockup box grown by the 4% gap. The subject bounding box is not
+  used for the gate (it would flag type sitting in an empty corner beside
+  the props); it is still drawn on the debug overlay. After all creatives, the manifest and
   debug overlays are written, any overlap sets manifest status "qa_failed",
   is printed, and the CLI exits 3. Nothing is deleted: the outputs are kept
   for review.
 - Debug overlays: debug/<creative path>_debug.png with the mapped subject box
   and the lockup box drawn. They are not deliverables.
-- subject_box is color-based (pixels unlike the sampled wall and floor), so it
-  can miss low-contrast parts, e.g. a plinth close to the floor color. The
-  overlays are the human check. No subject detected → overlaps_subject null,
+- The subject mask is color-based (pixels unlike the sampled wall and floor),
+  so it can miss low-contrast parts, e.g. a plinth close to the floor color.
+  Checking pixels instead of the box makes such misses matter more: nothing
+  covers the hole. The overlays are the human check. No subject detected → overlaps_subject null,
   which does not fail the gate.

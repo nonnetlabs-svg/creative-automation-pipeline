@@ -82,8 +82,8 @@ the CLI's `--model` overrides it. One model per run (docs/creative-spec.md, B5).
 `lockup_color` is the product's `deep_color`, unless its contrast against the pixels behind the
 lockup is below 4.5:1 and `text_fallback_color` measures higher (B5: if both fail, the higher one).
 `lockup_contrast` is the WCAG ratio of the color used; it can be < 4.5 when both fail (the
-fallback band is deferred). `overlaps_subject` counts the spec's 4% gap and is `null` when no
-subject was detected. Any `true` sets `status` to `"qa_failed"` (otherwise `"ok"`) and the CLI
+fallback band is deferred). `overlaps_subject` is true when subject pixels (not the subject's
+bounding box) fall within the spec's 4% gap of the lockup box, and `null` when no subject was detected. Any `true` sets `status` to `"qa_failed"` (otherwise `"ok"`) and the CLI
 exits 3 (QA gate, B5). Overlays for review: `outputs/<campaign_id>/debug/<creative path>_debug.png`.
 `heroes` is required, with one entry per product. A reused hero has only `product_id` and `source`
 (the file in `assets/products/` is the record), and extra fields are rejected. A generated hero

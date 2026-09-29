@@ -20,10 +20,12 @@ def fit_to_ratio(hero: Image, ratio: str) -> Image                    # never cr
                                      # (averaged edge strip stretched: wall up/sides, floor down/sides).
                                      # 9:16 subject at ~32-60% of height; 16:9 hero center at 62% of width;
                                      # 1:1 hero at HERO_SCALE_1x1 (0.78), top-center, floor band below (B5)
-def subject_box(hero: Image) -> Box | None                            # pixels unlike sampled wall (top rows) and
-                                     # floor (bottom rows); feeds the QA gate, never the layout. Color-based:
-                                     # may miss low-contrast parts (a plinth near floor color), see overlays
+def subject_box(hero: Image) -> Subject | None                        # Subject(box, mask): pixels unlike sampled
+                                     # wall (top rows) and floor (bottom rows); mask feeds the QA gate, box the
+                                     # overlay, neither the layout. Color-based: may miss low-contrast parts
+                                     # (a plinth near floor color), see overlays
 def map_box(box: Box, hero_size, ratio: str) -> Box                   # hero coords -> creative coords, same placement
+def map_mask(mask: Image, hero_size, ratio: str) -> Image             # detection mask -> creative-size mask, same placement
 def lockup_zone(ratio: str, size) -> tuple[Box, str, str]            # fixed zone + (h, v) align (B2; 1:1, 16:9 B5:
                                      # 16:9 on the wall, above HORIZON_Y minus the gap);
                                      # one function so subject-aware placement can replace it
@@ -32,7 +34,8 @@ def render_creative(img: Image, message: str, brand: BrandRules, deep_color: str
                                      # at TAGLINE_PX[ratio]: 1 line, else 2 balanced, else shrink (>= 18px);
                                      # deep color; if < 4.5:1, cream when it measures higher (B5)
 def check_brand(img: Image, brand: BrandRules, lockup: Lockup,
-                subject: Box | None) -> BrandChecks                   # report only, never raises;
+                subject: Image | None) -> BrandChecks                 # never raises; overlaps_subject = any
+                                     # subject-mask pixel inside the lockup box grown by the 4% gap;
                                      # prohibited_words always [] (check_copy stops the run first)
 def debug_overlay(img: Image, subject: Box | None, lockup: Box) -> Image  # copy, mapped subject box (magenta)
                                      # and lockup box (cyan) outlined; the human collision check
