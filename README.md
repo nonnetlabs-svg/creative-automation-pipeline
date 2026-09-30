@@ -101,8 +101,10 @@ box, so type in an empty corner beside the props passes. Each creative gets a de
 
 ## Assumptions & limits
 
-- **Translation, not transcreation.** The brief supplies one tagline per locale; the pipeline
-  renders it as given and does no cultural adaptation.
+- **Translation, not transcreation.** The brief supplies one approved tagline per locale; the
+  pipeline renders it as given. Copy is approved input on purpose: transcreation is a judgment
+  call for native speakers and legal. Next step: AI-drafted options per market with a
+  native-speaker approval gate, the same pattern used for the hero images.
 - **Latin-script languages only** (en, es, pt, fr, de, it, nl). CJK and RTL fail at load with
   "not supported yet": the font lacks the glyphs and Pillow's basic layout has no bidi or CJK
   line breaking ([docs/stages.md](docs/stages.md)).
