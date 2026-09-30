@@ -41,20 +41,18 @@ Mock run (no key, no network). It reuses the approved heroes in `assets/products
 python -m pipeline run examples/brief.json
 ```
 
-Real run through ElevenLabs. Heroes are only generated for products with no approved
-hero, so point `--assets` at an empty folder to actually spend:
+Real run through ElevenLabs. Heroes are only generated for products with no approved hero, so point `--assets` at an empty folder to actually spend:
 
 ```bash
 mkdir -p /tmp/no-heroes
 python -m pipeline run examples/brief.json --provider elevenlabs --assets /tmp/no-heroes
 ```
 
-The model defaults to `hero_model` in `examples/brand.json` (GPT Image 2.5 Sunburst).
-To try another model for one run, add `--model gemini-3-pro-image`.
+This generates new heroes (2 paid calls), so the photos differ from the samples; the approved heroes in `assets/products/` are what make the default run reproducible.
 
-Output lands in `outputs/<campaign_id>/`: creatives at
-`<product>/<locale>/<ratio>/<product>_<ratio>_<locale>.png`, `manifest.json`, `debug/`
-overlays, and `heroes/` for any freshly generated hero. The CLI prints a summary table.
+The model defaults to `hero_model` in `examples/brand.json` (GPT Image 2.5 Sunburst). To try another model for one run, add `--model gemini-3-pro-image`.
+
+Output lands in `outputs/<campaign_id>/`: creatives at `<product>/<locale>/<ratio>/<product>_<ratio>_<locale>.png`, `manifest.json`, `debug/` overlays, and `heroes/` for any freshly generated hero. The CLI prints a summary table.
 
 ## How it works
 
