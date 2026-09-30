@@ -7,8 +7,13 @@ ratios = 30 creatives, plus a manifest that records every check. The AI makes on
 hero image per product, and code adds all brand type, color and layout on top of it.
 Heroes are generated once, approved by a human, and reused, so a normal run costs nothing.
 
-Scope: the brief suggested 2-3 hours; the working end-to-end pipeline is commit 0b99e6a. Later
-commits are deliberate quality passes, each described in git log.
+**Scope:** the brief suggested 2–3 hours. At commit
+[0b99e6a](https://github.com/nonnetlabs-svg/creative-automation-pipeline/commit/0b99e6a)
+the pipeline ran end to end with a real model; you can
+[browse the repo at that commit](https://github.com/nonnetlabs-svg/creative-automation-pipeline/tree/0b99e6a)
+to see the 2–3 hour version. Every
+[commit after it](https://github.com/nonnetlabs-svg/creative-automation-pipeline/commits/main)
+is a named quality pass.
 
 | | 1:1 | 9:16 | 16:9 |
 |---|---|---|---|
