@@ -105,9 +105,12 @@ box, so type in an empty corner beside the props passes. Each creative gets a de
   pipeline renders it as given. Copy is approved input on purpose: transcreation is a judgment
   call for native speakers and legal. Next step: AI-drafted options per market with a
   native-speaker approval gate, the same pattern used for the hero images.
-- **Latin-script languages only** (en, es, pt, fr, de, it, nl). CJK and RTL fail at load with
-  "not supported yet": the font lacks the glyphs and Pillow's basic layout has no bidi or CJK
-  line breaking ([docs/stages.md](docs/stages.md)).
+- **Latin-script languages only** (English, Spanish, Portuguese, French, German, Italian,
+  Dutch). Japanese, Chinese and Korean (CJK) and right-to-left scripts like Hebrew and Arabic
+  are rejected at load, before any spend. They need a font with those characters and layout the
+  current renderer lacks: CJK line breaking, and for Hebrew, right-to-left text with a mirrored
+  layout. Next step: a Noto font per script plus a text-shaping engine (Pillow with libraqm).
+  Details in [docs/stages.md](docs/stages.md).
 - **Fixed layout zones** per ratio. Placement doesn't adapt to the subject; the QA gate catches collisions.
 - **Color-based subject detection.** Parts close to the wall or floor color (e.g. a plinth near the
   floor tone) can be missed; the overlays are the human check.
