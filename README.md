@@ -22,6 +22,8 @@ Samples are downscaled to 800 px wide; the real outputs are 1080×1080, 1080×19
 Python 3.13.
 
 ```bash
+git clone https://github.com/nonnetlabs-svg/creative-automation-pipeline.git
+cd creative-automation-pipeline
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # add ELEVENLABS_API_KEY only for real runs
