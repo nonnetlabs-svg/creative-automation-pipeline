@@ -87,8 +87,12 @@ up front. A blocked run writes nothing and costs $0.
 The models take no seed, so reproducibility comes from the approved file, not from regeneration.
 
 **Provider slot and model as config.** `ImageProvider` is a small protocol (mock, ElevenLabs).
-The model comes from `hero_model` in [examples/brand.json](examples/brand.json), `--model` overrides
-it for one run, and unknown ids fail before a request. One model per run.
+ElevenLabs was used because it gave immediate API access to several frontier image models
+through one interface, which made a model A/B possible within the time box. The Firefly
+Services API currently requires an enterprise entitlement, so it isn't self-serve for an
+individual developer; Firefly drops into the same provider slot without changing the pipeline.
+The model comes from `hero_model` in [examples/brand.json](examples/brand.json), `--model`
+overrides it for one run, and unknown ids fail before a request. One model per run.
 
 **Code owns all brand text.** The AI image contains no text; code sets a Bricolage Grotesque
 type lockup at a fixed type scale per ratio. The deep product color is used unless it measures
