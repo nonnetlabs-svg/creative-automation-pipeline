@@ -39,6 +39,7 @@ Mock run (no key, no network). It reuses the approved heroes in `assets/products
 
 ```bash
 python -m pipeline run examples/brief.json
+open outputs/fizz-summer-2026        # macOS; opens the folder with all 30 ads
 ```
 
 Real run through ElevenLabs. Heroes are only generated for products with no approved hero, so point `--assets` at an empty folder to actually spend:
